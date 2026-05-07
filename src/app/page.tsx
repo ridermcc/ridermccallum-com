@@ -1,64 +1,105 @@
-import Image from "next/image";
+import Link from "next/link";
+
+type Section = {
+  title: string;
+  blurb: string;
+  href: string;
+  status: "Live" | "Soon";
+  external?: boolean;
+};
+
+const sections: Section[] = [
+  {
+    title: "Europe on Ice",
+    blurb: "An atlas of thirteen European hockey towns — chosen not for their rinks, but for what surrounds them.",
+    href: "/europe",
+    status: "Live",
+  },
+  {
+    title: "Tools for players",
+    blurb: "Dashboards, skills, and Claude Code projects you can clone and use. Built with other players in mind.",
+    href: "/tools",
+    status: "Soon",
+  },
+  {
+    title: "Notes",
+    blurb: "Things I'm learning — on the ice, off the ice, and in the code.",
+    href: "/notes",
+    status: "Soon",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="flex flex-1 flex-col bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-16 px-6 py-20 sm:px-10 sm:py-28">
+        <header className="flex flex-col gap-4">
+          <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+            Rider McCallum
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+            Pro hockey player.
+            <br />
+            <span className="text-zinc-500 dark:text-zinc-400">
+              Notes, tools, and projects from a career on ice.
+            </span>
+          </h1>
+          <p className="max-w-xl text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+            Public home for things worth sharing — what I&apos;m building, what I&apos;m learning,
+            and resources for other players figuring it out alongside me.
+          </p>
+        </header>
+
+        <section className="flex flex-col gap-3">
+          {sections.map((s) => {
+            const isLive = s.status === "Live";
+            const cardClasses =
+              "group flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-6 transition-colors dark:border-zinc-800 dark:bg-zinc-950" +
+              (isLive ? " hover:border-zinc-400 dark:hover:border-zinc-600" : " opacity-60");
+
+            const inner = (
+              <>
+                <div className="flex items-baseline justify-between gap-4">
+                  <h2 className="text-xl font-medium tracking-tight">{s.title}</h2>
+                  <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    {s.status}
+                  </span>
+                </div>
+                <p className="text-zinc-600 dark:text-zinc-400">{s.blurb}</p>
+              </>
+            );
+
+            return isLive ? (
+              <Link key={s.title} href={s.href} className={cardClasses}>
+                {inner}
+              </Link>
+            ) : (
+              <div key={s.title} className={cardClasses} aria-disabled>
+                {inner}
+              </div>
+            );
+          })}
+        </section>
+
+        <footer className="mt-auto flex flex-col gap-2 border-t border-zinc-200 pt-8 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <p>
+            Built with{" "}
+            <a
+              className="underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-100"
+              href="https://claude.com/claude-code"
+            >
+              Claude Code
+            </a>
+            . Source on{" "}
+            <a
+              className="underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-100"
+              href="https://github.com/ridermcc/ridermccallum-com"
+            >
+              GitHub
+            </a>
+            .
+          </p>
+        </footer>
       </main>
     </div>
   );
