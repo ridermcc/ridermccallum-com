@@ -1,0 +1,42 @@
+export const metadata = {
+  title: "Offseason Dashboard",
+  summary:
+    "A 17-week offseason training dashboard for hockey players. Clone, run a 5-question setup, and let Claude Code log your daily workouts.",
+  audience: ["player"],
+  repo: "https://github.com/ridermcc/offseason-dashboard",
+  status: "Live",
+};
+
+## What it is
+
+A single-file HTML dashboard that tracks your full offseason — schedule, daily workouts, mobility, sleep, soreness, and weekly reviews. You own the viewer; Claude Code owns the data.
+
+The original version is what I use myself. This is the public template — same structure, no personal data, with a quick first-run setup.
+
+## Who it's for
+
+Players (junior, college, pro) who want a simple dashboard for the offseason and don't want to fight with a clunky app. If you can use Claude Code, you can use this.
+
+## How it works
+
+You talk to Claude — text notes, post-workout recaps, how you're feeling. Claude updates small JS data files. You reload `index.html` to see your dashboard. No accounts, no cloud, no monthly fee.
+
+## Get it running
+
+```bash
+git clone https://github.com/ridermcc/offseason-dashboard
+cd offseason-dashboard
+claude
+```
+
+Then say: **"set up my dashboard"**. Claude will ask you 5 questions (name, position, start date, length, top goals) and fill in your config. Open `index.html` in your browser — done.
+
+## What's next
+
+- Daily check-ins: "Just finished lower lift" → Claude logs it
+- Weekly reviews: "How am I doing?" → Claude pulls last 7 days vs plan
+- Add programs: paste your team's lifting program, Claude formats it into the dashboard
+
+## Notes
+
+The repo ships with the schema and viewer only — no programs included. You either bring your own (paste from your team / coach) or ask Claude to write one based on your goals during setup.
