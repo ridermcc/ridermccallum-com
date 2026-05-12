@@ -4,7 +4,6 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/tools", label: "Tools" },
   { href: "/notes", label: "Notes" },
-  { href: "/about", label: "About" },
 ];
 
 export function SiteNav() {

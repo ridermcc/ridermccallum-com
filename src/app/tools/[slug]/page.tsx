@@ -11,6 +11,7 @@ type ToolFrontmatter = {
   repo?: string;
   demo?: string;
   status?: string;
+  pinned?: boolean;
 };
 
 async function loadTool(slug: string) {
@@ -63,7 +64,7 @@ export default async function ToolPage({
   return (
     <Container>
       <PageHeader
-        eyebrow="Tool"
+        eyebrow={meta.status ?? "Tool"}
         title={meta.title}
         lede={meta.summary}
       />

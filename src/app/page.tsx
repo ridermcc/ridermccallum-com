@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CardLink } from "@/components/CardLink";
 import { Container, PageHeader } from "@/components/Container";
 
@@ -6,7 +7,7 @@ const sections = [
     title: "Tools",
     href: "/tools",
     blurb:
-      "Dashboards, skills, and Claude Code projects to clone and build upon.",
+      "Projects and platforms I've built, most open-source.",
     meta: "",
   },
   {
@@ -16,13 +17,6 @@ const sections = [
       "Things I'm learning, on the ice, off the ice, and in the code.",
     meta: "",
   },
-  {
-    title: "hky.bio",
-    href: "https://www.hky.bio/",
-    blurb:
-      "A platform I built for players like me.",
-    meta: "",
-  },
 ];
 
 export default function Home() {
@@ -30,9 +24,16 @@ export default function Home() {
     <Container>
       <PageHeader
         eyebrow="Rider McCallum"
-        title="Hockey Player / Software Developer"
-        lede="Tools, notes, and projects from the overlap of hockey and software, built for other players figuring it out alongside me."
+        title="Hockey & Software"
+        lede="Sharing what I build so the next player doesn't start from scratch."
       />
+
+      <Link
+        href="/notes/welcome"
+        className="-mt-8 text-sm text-zinc-500 transition-colors hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+      >
+        Why this site exists &rarr;
+      </Link>
 
       <section className="flex flex-col gap-3">
         {sections.map((s) => (

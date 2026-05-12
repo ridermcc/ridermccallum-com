@@ -9,6 +9,7 @@ export type ToolMeta = {
   repo?: string;
   demo?: string;
   status?: "Live" | "Beta" | "Draft";
+  pinned?: boolean;
 };
 
 export type NoteMeta = {
@@ -44,7 +45,11 @@ export async function getTools(): Promise<ToolMeta[]> {
       return { slug, ...mod.metadata } as ToolMeta;
     }),
   );
-  return items.sort((a, b) => a.title.localeCompare(b.title));
+  return items.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return a.title.localeCompare(b.title);
+  });
 }
 
 export async function getNotes(): Promise<NoteMeta[]> {

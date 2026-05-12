@@ -5,7 +5,7 @@ import { getTools } from "@/lib/content";
 export const metadata = {
   title: "Tools",
   description:
-    "Clone-able dashboards, skills, and Claude Code projects for hockey players, coaches, and agents.",
+    "Projects and platforms built for hockey players, coaches, and agents.",
 };
 
 export default async function ToolsIndex() {
@@ -15,8 +15,8 @@ export default async function ToolsIndex() {
     <Container>
       <PageHeader
         eyebrow="Tools"
-        title="Things you can clone."
-        lede="Dashboards, skills, and Claude Code projects built for hockey players, coaches, and agents. Each one comes with a quick setup flow: clone, run, customize."
+        title="Things I've built."
+        lede="Projects, platforms, and open-source tools for hockey players, coaches, and agents."
       />
 
       {tools.length === 0 ? (
