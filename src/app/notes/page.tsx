@@ -4,7 +4,7 @@ import { getNotes } from "@/lib/content";
 
 export const metadata = {
   title: "Notes",
-  description: "Things I'm learning — on the ice, off the ice, and in the code.",
+  description: "Reflections, research, lessons, and a log of what I'm building on/off the ice and in code.",
 };
 
 function formatDate(iso: string) {
@@ -22,8 +22,8 @@ export default async function NotesIndex() {
     <Container>
       <PageHeader
         eyebrow="Notes"
-        title="What I'm learning."
-        lede="Short pieces about hockey, training, building tools, and what it's like to figure out a career one day at a time."
+        title="What I'm building, and learning."
+        lede="Reflections, research, lessons, and a log of what I'm building on/off the ice and in code."
       />
 
       {notes.length === 0 ? (

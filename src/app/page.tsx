@@ -13,14 +13,7 @@ const sections = [
     title: "Notes",
     href: "/notes",
     blurb:
-      "Things I'm learning — on the ice, off the ice, and in the code.",
-    meta: "Live",
-  },
-  {
-    title: "Europe on Ice",
-    href: "/europe",
-    blurb:
-      "An atlas of thirteen European hockey towns — chosen not for their rinks, but for what surrounds them.",
+      "Things I'm learning, on the ice, off the ice, and in the code.",
     meta: "Live",
   },
 ];
@@ -30,8 +23,8 @@ export default function Home() {
     <Container>
       <PageHeader
         eyebrow="Rider McCallum"
-        title="Pro hockey player."
-        lede="Public home for things worth sharing — what I'm building, what I'm learning, and resources for other players figuring it out alongside me."
+        title="Hockey Player / Software Developer"
+        lede="Tools, notes, and projects from the overlap of hockey and software, built for other players figuring it out alongside me."
       />
 
       <section className="flex flex-col gap-3">

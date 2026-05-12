@@ -17,9 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: {
     default: "Rider McCallum",
-    template: "%s — Rider McCallum",
+    template: "%s · Rider McCallum",
   },
-  description: "Pro hockey player. Notes, tools, and projects from a career on ice.",
+  description: "Hockey player and software developer: Notes, tools, and projects.",
 };
 
 export default function RootLayout({

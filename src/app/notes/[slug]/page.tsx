@@ -1,5 +1,6 @@
 import { Container, PageHeader } from "@/components/Container";
-import { getNoteSlugs } from "@/lib/content";
+import { PostNav } from "@/components/PostNav";
+import { getNoteSlugs, getNotes } from "@/lib/content";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -61,12 +62,22 @@ export default async function NotePage({
 
   const { Component, meta } = note;
 
+  const notes = await getNotes();
+  const currentIndex = notes.findIndex((n) => n.slug === slug);
+  const nextNote = currentIndex >= 0 ? notes[currentIndex + 1] : undefined;
+
   return (
     <Container>
       <PageHeader eyebrow={formatDate(meta.date)} title={meta.title} lede={meta.summary} />
       <article className="prose prose-zinc max-w-none dark:prose-invert">
         <Component />
       </article>
+      <PostNav
+        indexHref="/notes"
+        indexLabel="All notes"
+        nextHref={nextNote ? `/notes/${nextNote.slug}` : undefined}
+        nextTitle={nextNote?.title}
+      />
     </Container>
   );
 }

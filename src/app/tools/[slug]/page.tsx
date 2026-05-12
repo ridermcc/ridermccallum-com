@@ -1,5 +1,6 @@
 import { Container, PageHeader } from "@/components/Container";
-import { getToolSlugs } from "@/lib/content";
+import { PostNav } from "@/components/PostNav";
+import { getToolSlugs, getTools } from "@/lib/content";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -55,6 +56,10 @@ export default async function ToolPage({
 
   const { Component, meta } = tool;
 
+  const tools = await getTools();
+  const currentIndex = tools.findIndex((t) => t.slug === slug);
+  const nextTool = currentIndex >= 0 ? tools[currentIndex + 1] : undefined;
+
   return (
     <Container>
       <PageHeader
@@ -91,6 +96,14 @@ export default async function ToolPage({
       <article className="prose prose-zinc max-w-none dark:prose-invert">
         <Component />
       </article>
+
+      <PostNav
+        indexHref="/tools"
+        indexLabel="All tools"
+        nextHref={nextTool ? `/tools/${nextTool.slug}` : undefined}
+        nextTitle={nextTool?.title}
+        nextLabel="Next tool"
+      />
     </Container>
   );
 }

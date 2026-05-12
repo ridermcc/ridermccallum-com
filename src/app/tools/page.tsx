@@ -16,7 +16,7 @@ export default async function ToolsIndex() {
       <PageHeader
         eyebrow="Tools"
         title="Things you can clone."
-        lede="Dashboards, skills, and Claude Code projects built for hockey players, coaches, and agents. Each one comes with a quick setup flow — clone, run, customize."
+        lede="Dashboards, skills, and Claude Code projects built for hockey players, coaches, and agents. Each one comes with a quick setup flow: clone, run, customize."
       />
 
       {tools.length === 0 ? (

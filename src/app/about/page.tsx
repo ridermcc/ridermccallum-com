@@ -17,9 +17,9 @@ export default function AboutPage() {
         <p>
           I think every player, coach, and agent will be using AI tools like{" "}
           <a href="https://claude.com/claude-code">Claude Code</a> in a few
-          years to make their lives better. I want to be useful in that shift —
-          building things in public, sharing what works, and making it as easy
-          as possible for the next person to clone what I&apos;ve made and
+          years to make their lives better. I want to be useful in that shift
+          by building things in public, sharing what works, and making it as
+          easy as possible for the next person to clone what I&apos;ve made and
           adapt it.
         </p>
         <p>
@@ -27,12 +27,12 @@ export default function AboutPage() {
         </p>
         <ul>
           <li>
-            <strong>Tools</strong> — dashboards, skills, and small projects you
+            <strong>Tools.</strong> Dashboards, skills, and small projects you
             can fork. Each one comes with a one-shot Claude Code setup flow so
             you can be up and running in a few minutes.
           </li>
           <li>
-            <strong>Notes</strong> — things I&apos;m figuring out, on the ice
+            <strong>Notes.</strong> Things I&apos;m figuring out, on the ice
             and off it.
           </li>
         </ul>
