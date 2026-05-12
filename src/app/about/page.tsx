@@ -15,9 +15,9 @@ export default function AboutPage() {
           useful to other players, coaches, and people in the hockey world.
         </p>
         <p>
-          I think every player, coach, and agent will be using AI tools like{" "}
-          <a href="https://claude.com/claude-code">Claude Code</a> in a few
-          years to make their lives better. I want to be useful in that shift
+          I think every player, coach, and agent will quickly adopt AI tools like{" "}
+          <a href="https://claude.com/claude-code">Claude Code</a>
+          {" "}to make their lives easier and create useful things. I want to be a part of that shift
           by building things in public, sharing what works, and making it as
           easy as possible for the next person to clone what I&apos;ve made and
           adapt it.
