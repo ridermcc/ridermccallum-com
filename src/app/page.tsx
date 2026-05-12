@@ -6,15 +6,22 @@ const sections = [
     title: "Tools",
     href: "/tools",
     blurb:
-      "Dashboards, skills, and Claude Code projects you can clone and use. Built with other players in mind.",
-    meta: "Live",
+      "Dashboards, skills, and Claude Code projects to clone and build upon.",
+    meta: "",
   },
   {
     title: "Notes",
     href: "/notes",
     blurb:
       "Things I'm learning, on the ice, off the ice, and in the code.",
-    meta: "Live",
+    meta: "",
+  },
+  {
+    title: "hky.bio",
+    href: "https://www.hky.bio/",
+    blurb:
+      "A platform I built for players like me.",
+    meta: "",
   },
 ];
 
