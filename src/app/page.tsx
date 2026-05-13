@@ -25,14 +25,14 @@ export default function Home() {
       <PageHeader
         eyebrow="Rider McCallum"
         title="Hockey & Software"
-        lede="Sharing what I build so the next player doesn't start from scratch."
+        lede="Sharing while playing and building."
       />
 
       <Link
         href="/notes/welcome"
         className="-mt-8 text-sm text-zinc-500 transition-colors hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
       >
-        Why this site exists &rarr;
+        About this site &rarr;
       </Link>
 
       <section className="flex flex-col gap-3">
