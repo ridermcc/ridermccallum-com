@@ -71,16 +71,6 @@ export default async function ToolPage({
 
       {(meta.repo || meta.demo) && (
         <div className="flex flex-wrap gap-2">
-          {meta.repo ? (
-            <a
-              href={meta.repo}
-              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View on GitHub →
-            </a>
-          ) : null}
           {meta.demo ? (
             <a
               href={meta.demo}
@@ -89,6 +79,16 @@ export default async function ToolPage({
               rel="noopener noreferrer"
             >
               Live demo →
+            </a>
+          ) : null}
+          {meta.repo ? (
+            <a
+              href={meta.repo}
+              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View on GitHub →
             </a>
           ) : null}
         </div>
