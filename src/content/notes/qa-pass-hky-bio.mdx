@@ -1,0 +1,67 @@
+export const metadata = {
+  title: "QA pass on the hky.bio walkthrough",
+  summary:
+    "I let Claude walk through the onboarding flow it built. Three things were broken.",
+  date: "2026-05-19",
+  tags: ["hky-bio", "claude", "hockey"],
+};
+
+I [shipped the onboarding walkthrough](./claude-loop) yesterday. The loop landed nine of ten issues cleanly and I fed the last one back into Claude to iterate on.
+
+I had Claude open the dashboard in a Playwright session at iPhone-12 size, log in as a fresh player, and walk through the full flow. Photo, preview, component pick, stats, social link. I asked it to capture screenshots, read the network and console, and cross-reference everything it saw against the source.
+
+It found nine issues. Three matter.
+
+## What broke
+
+**The walkthrough ended one step early.** When the user taps a social platform on the picker, the spotlight is supposed to land on the URL input until a link is saved. In practice the spotlight disappeared, the dashboard popped back, and the completion timestamp got stamped. The cause is a race between two watchers in `OnboardingSpotlight` that both call `advance()` for the same condition. They composed into a double-step on the last index and triggered `onComplete` without the user finishing.
+
+<PhotoGrid
+  cols={1}
+  photos={[
+    { src: "/notes/qa-pass-hky-bio/walkthrough-died-mid-flow.jpg", alt: "Instagram username input visible, no walkthrough tooltip anywhere" },
+  ]}
+/>
+
+**Empty stats render as a blank row.** The walkthrough tells the user "empty values are fine". Tap Done without typing anything and the stats card shows the labels GP / G / A / PTS with no numbers above them. It does this in the dashboard preview and on the public profile a viewer would actually visit. The fix is one character (a placeholder).
+
+<PhotoGrid
+  cols={1}
+  photos={[
+    { src: "/notes/qa-pass-hky-bio/empty-stats-public-profile.jpg", alt: "Public profile at hky.bio/test, stats row shows only labels with empty space above" },
+  ]}
+/>
+
+**Tooltip placement clashes with modal-anchored steps.** The mobile auto-flip puts the tooltip on the opposite side of the viewport from its target, to keep it away from the thumb. For modals and tall cards the tooltip ends up far from the thing it points at, or directly on top of it. Cosmetic, but it shows up across four steps.
+
+<PhotoGrid
+  cols={1}
+  photos={[
+    { src: "/notes/qa-pass-hky-bio/tooltip-overlaps-target.jpg", alt: "Tooltip about the stats pickers sitting on top of the stats it describes" },
+  ]}
+/>
+
+The other six are smaller: em-dashes in the copy, an aria-label that contradicts the tooltip, a hover affordance that traps the next tap on touch, a dev-only occlusion check, a back-gesture disabled during the walkthrough, and a zoom slider rendered before there's an image to zoom. The full review lives in `hky-bio/bug-reviews/for-manual-review/2026-05-19-mobile-walkthrough/` in the project repo.
+
+## What this tells me about the loop
+
+The loop is good at code that satisfies a test. It shipped a spotlight engine, a checklist, a share modal, all of it covered by `SpotlightWiring.test.tsx`. That test even covers the social step. It clicks Pick, then immediately clicks Save. The race never gets a chance to fire because no user pause is simulated.
+
+So the loop wrote the code, and it wrote a test that confirms the code does what the loop wrote it to do. Both halves are correct on their own terms. Neither half ever met a real user.
+
+Using the thing on my phone caught what the loop and the tests both missed. That gap is what this pass was always going to close. Shipped is not done.
+
+## What's next
+
+Claude went back through the review and patched 8 of the 9. The walkthrough race got a transition guard so `advance()` only fires when the condition flips. Empty stats render as a placeholder. The hero overlay no longer traps the second tap. Tooltip placements got pinned. The occlusion probe learned to skip dev-tools widgets. The zoom slider waits for an image. Bug 8 (back-swipe disabled during the flow) was left alone, probably on purpose.
+
+The test that masked Bug 1 still passes. It always mutated state synchronously, so the race never had a window to reproduce. Diagnosis confirmed.
+
+I walked it on my phone. Four more bugs surfaced.
+
+- Preview scrolls when the dashboard underneath has scrollable content. Fix: lock the body when preview opens.
+- Browser back from preview jumps to login instead of dashboard. The history sentinel was disabled during the walkthrough. Fix: turn it on.
+- In the social walkthrough, the URL input sits over the back arrow, so I can't go back and pick a different platform. Fix: anchor the tooltip on the panel itself, not on an element inside it.
+- Exiting the social step mid-flow breaks the walkthrough. `onboarding_completed_at` stays null and `currentStep` stays on `social-enter-url`, but the spotlight never reappears. Fix: watch the panel, and if it closes before a link is saved, rewind to the platform-pick step.
+
+All four are patched and walked through manually. The feature is not done when the test passes. It is done when I can walk it on my phone without finding a new bug.

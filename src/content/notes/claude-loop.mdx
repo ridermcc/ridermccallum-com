@@ -6,13 +6,13 @@ export const metadata = {
   tags: ["hky-bio", "claude", "hockey"],
 };
 
-I built an onboarding walkthrough for new signups to [hky.bio](https://hky.bio). New users now get a spotlight tour of the dashboard, a persistent setup checklist, and a share modal at the end.
+I built an onboarding walkthrough for new signups to [hky.bio](https://hky.bio). When it ships, new users will get a spotlight tour of the dashboard, a persistent setup checklist, and a share modal at the end.
 
 This note covers what got built and how it got built.
 
 ## What got built
 
-New users used to land on an empty profile editor with no obvious entry point. The "+" button, the preview, the drag handles, and the section editors all sit there at once. When watching players walk through the setup, they got lost/confused.
+New users land on an empty profile editor with no obvious entry point. The "+" button, the preview, the drag handles, and the section editors all sit there at once. When watching players walk through the setup, they got lost/confused.
 
 The new flow:
 
@@ -87,4 +87,6 @@ It is not good at design taste. The first nine issues all landed cleanly, but th
 
 ## What's next
 
-The walkthrough is live. New signups flow through it now. I want to see whether activation actually improves before I add anything else.
+The walkthrough is built but not shipped. Before it goes live I'm walking the full flow on a phone as a fresh user. [Notes from that pass here](./qa-pass-hky-bio).
+
+Once it ships I want to see whether activation actually improves before I add anything else.
