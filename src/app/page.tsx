@@ -100,18 +100,18 @@ export default async function Home() {
 
         {/* HOCKEY PHOTO */}
         <section className="tile group relative aspect-[4/3] md:aspect-auto md:col-span-8 md:row-span-2">
-          <div className="absolute inset-0 grid grid-cols-3 gap-[2px]">
+          <div className="absolute inset-0 grid grid-cols-2 gap-[2px] md:grid-cols-3">
             {[
               "/homepage-onice/onice-1.jpg",
               "/homepage-onice/onice-2.jpg",
               "/homepage-onice/onice-3.jpg",
             ].map((src, i) => (
-              <div key={src} className="relative overflow-hidden">
+              <div key={src} className={`relative overflow-hidden${i === 1 ? " hidden md:block" : ""}`}>
                 <Image
                   src={src}
                   alt="On the ice"
                   fill
-                  sizes="(min-width: 768px) 22vw, 33vw"
+                  sizes="(min-width: 768px) 22vw, 50vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                   priority={i === 0}
                 />
