@@ -11,22 +11,24 @@ type Props = {
 
 export function CardLink({ href, title, blurb, meta, external, disabled }: Props) {
   const classes =
-    "group flex flex-col gap-2 rounded-2xl border border-zinc-200 bg-white p-6 transition-colors dark:border-zinc-800 dark:bg-zinc-950" +
+    "group relative flex flex-col gap-2 rounded-2xl border border-border bg-surface p-6 transition-all duration-200" +
     (disabled
       ? " opacity-60"
-      : " hover:border-zinc-400 dark:hover:border-zinc-600");
+      : " hover:border-accent/40 hover:shadow-[0_0_24px_var(--color-accent-glow)]");
 
   const inner = (
     <>
+      {/* Accent left bar */}
+      <span className="absolute left-0 top-4 bottom-4 w-[3px] rounded-full bg-accent opacity-0 transition-opacity group-hover:opacity-100" />
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-xl font-medium tracking-tight">{title}</h2>
+        <h2 className="text-xl font-semibold tracking-tight font-heading">{title}</h2>
         {meta ? (
-          <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider text-accent">
             {meta}
           </span>
         ) : null}
       </div>
-      <p className="text-zinc-600 dark:text-zinc-400">{blurb}</p>
+      <p className="text-muted">{blurb}</p>
     </>
   );
 

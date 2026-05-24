@@ -27,11 +27,11 @@ export default async function NotesIndex() {
       />
 
       {notes.length === 0 ? (
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <p className="text-muted">
           Nothing here yet. Check back soon.
         </p>
       ) : (
-        <section className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800">
+        <section className="flex flex-col divide-y divide-border">
           {notes.map((n) => (
             <Link
               key={n.slug}
@@ -39,14 +39,14 @@ export default async function NotesIndex() {
               className="group flex flex-col gap-1 py-5 transition-colors first:pt-0 last:pb-0"
             >
               <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-lg font-medium tracking-tight group-hover:text-zinc-600 dark:group-hover:text-zinc-300">
+                <h2 className="text-lg font-semibold tracking-tight font-heading transition-colors group-hover:text-accent">
                   {n.title}
                 </h2>
-                <time className="shrink-0 text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <time className="shrink-0 rounded-full bg-accent/8 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider text-muted">
                   {formatDate(n.date)}
                 </time>
               </div>
-              <p className="text-zinc-600 dark:text-zinc-400">{n.summary}</p>
+              <p className="text-muted">{n.summary}</p>
             </Link>
           ))}
         </section>

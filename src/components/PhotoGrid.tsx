@@ -28,7 +28,7 @@ export function PhotoGrid({
               src={p.src}
               alt={p.alt}
               loading="lazy"
-              className="w-full rounded-lg border border-zinc-200 transition-opacity hover:opacity-90 dark:border-zinc-800"
+              className="w-full rounded-lg border border-border transition-opacity hover:opacity-90"
             />
           </a>
         ))}
@@ -50,7 +50,7 @@ export function PhotoGrid({
             src={p.src}
             alt={p.alt}
             loading="lazy"
-            className="w-full rounded-lg border border-zinc-200 transition-opacity hover:opacity-90 dark:border-zinc-800"
+            className="w-full rounded-lg border border-border transition-opacity hover:opacity-90"
           />
         </a>
       ))}

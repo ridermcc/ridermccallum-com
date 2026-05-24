@@ -16,24 +16,24 @@ export function PostNav({
   nextLabel,
 }: Props) {
   return (
-    <nav className="mt-8 flex flex-col gap-3 border-t border-zinc-200 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
+    <nav className="mt-8 flex flex-col gap-3 border-t border-border pt-8 text-sm sm:flex-row sm:items-center sm:justify-between">
       <Link
         href={indexHref}
-        className="text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+        className="text-muted transition-colors hover:text-accent"
       >
         ← {indexLabel}
       </Link>
       {nextHref && nextTitle ? (
         <Link
           href={nextHref}
-          className="group flex flex-col text-zinc-600 transition-colors hover:text-zinc-900 sm:items-end dark:text-zinc-400 dark:hover:text-zinc-100"
+          className="group flex flex-col text-muted transition-colors hover:text-accent sm:items-end"
         >
           {nextLabel ? (
-            <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
+            <span className="text-xs uppercase tracking-wider text-muted/70">
               {nextLabel}
             </span>
           ) : null}
-          <span className="font-medium">{nextTitle} →</span>
+          <span className="font-medium font-heading">{nextTitle} →</span>
         </Link>
       ) : null}
     </nav>

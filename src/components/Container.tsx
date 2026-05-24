@@ -20,15 +20,15 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-3">
       {eyebrow ? (
-        <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-accent">
           {eyebrow}
         </p>
       ) : null}
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <h1 className="text-3xl font-bold tracking-tight font-heading sm:text-4xl">
         {title}
       </h1>
       {lede ? (
-        <p className="max-w-xl text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+        <p className="max-w-xl text-lg leading-8 text-muted">
           {lede}
         </p>
       ) : null}

@@ -74,7 +74,7 @@ export default async function ToolPage({
           {meta.demo ? (
             <a
               href={meta.demo}
-              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
+              className="rounded-full border border-accent/30 bg-accent/5 px-4 py-1.5 text-sm font-medium text-accent transition-all hover:border-accent hover:bg-accent/10 hover:shadow-[0_0_16px_var(--color-accent-glow)]"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -84,7 +84,7 @@ export default async function ToolPage({
           {meta.repo ? (
             <a
               href={meta.repo}
-              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 transition-colors hover:border-zinc-500 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
+              className="rounded-full border border-border px-4 py-1.5 text-sm font-medium text-muted transition-all hover:border-accent/40 hover:text-accent"
               target="_blank"
               rel="noopener noreferrer"
             >
