@@ -65,11 +65,11 @@ export default async function Home() {
               <p className="max-w-xl text-base leading-7 text-muted sm:text-lg sm:leading-8">
                 Sharing while playing and building.
               </p>
-              <span className="w-fit font-mono text-xs text-muted transition-colors group-hover:text-accent">
+              <span className="w-fit font-mono text-xs text-accent sm:text-muted transition-colors sm:group-hover:text-accent">
                 <span className="inline-flex items-center gap-0">
                   <span>$ cat about.md</span>
-                  <span className="inline-block w-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out group-hover:w-[3.5ch]">&nbsp;&rarr;</span>
-                  <span className="inline-block h-[1.1em] w-[0.5em] translate-y-[1px] bg-current opacity-0 transition-opacity duration-200 group-hover:animate-pulse group-hover:opacity-70" aria-hidden />
+                  <span className="inline-block w-[3.5ch] sm:w-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-out sm:group-hover:w-[3.5ch]">&nbsp;&rarr;</span>
+                  <span className="hidden sm:inline-block h-[1.1em] w-[0.5em] translate-y-[1px] bg-current sm:opacity-0 sm:animate-none transition-opacity duration-200 sm:group-hover:animate-pulse sm:group-hover:opacity-70" aria-hidden />
                 </span>
               </span>
             </div>
@@ -93,7 +93,7 @@ export default async function Home() {
             </div>
             <div style={{ color: "#a1a1aa" }}>
               hockey player. software builder.<br />
-              shipping tools for athletes.<span className="caret" aria-hidden />
+              building tools for athletes.<span className="caret" aria-hidden />
             </div>
           </div>
         </section>
@@ -119,10 +119,7 @@ export default async function Home() {
             ))}
           </div>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-          <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between font-mono text-xs text-white">
-            <span className="rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm">
-              on-ice
-            </span>
+          <div className="absolute bottom-3 right-4 font-mono text-xs text-white">
             <span className="opacity-80">2026</span>
           </div>
         </section>
