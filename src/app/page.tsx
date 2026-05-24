@@ -215,7 +215,7 @@ export default async function Home() {
                   className="group flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="font-mono text-xs text-muted">
+                    <span className="shrink-0 whitespace-nowrap font-mono text-xs text-muted">
                       {formatShortDate(n.date)}
                     </span>
                     <span className="truncate text-sm transition-colors group-hover:text-accent">
