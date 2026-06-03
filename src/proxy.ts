@@ -52,7 +52,7 @@ const page = `<!doctype html>
     <main>
       <span class="tag">Rider McCallum</span>
       <h1>Down for maintenance</h1>
-      <p>The site is temporarily offline while I make some changes. Check back soon.</p>
+      <p>The site is temporarily offline while I make some changes.</p>
     </main>
   </body>
 </html>`;
