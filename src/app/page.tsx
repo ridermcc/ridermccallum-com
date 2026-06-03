@@ -100,19 +100,18 @@ export default async function Home() {
 
         {/* HOCKEY PHOTO */}
         <section className="tile group relative aspect-[4/3] md:aspect-auto md:col-span-8 md:row-span-2">
-          <div className="absolute inset-0 grid grid-cols-2 gap-[2px] md:grid-cols-3">
+          <div className="absolute inset-0 grid grid-cols-2 gap-[2px]">
             {[
               "/homepage-onice/onice-1.jpg",
-              "/homepage-onice/onice-2.jpg",
               "/homepage-onice/onice-3.jpg",
             ].map((src, i) => (
-              <div key={src} className={`relative overflow-hidden${i === 1 ? " hidden md:block" : ""}`}>
+              <div key={src} className="relative overflow-hidden">
                 <Image
                   src={src}
                   alt="On the ice"
                   fill
-                  sizes="(min-width: 768px) 22vw, 50vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  sizes="(min-width: 768px) 33vw, 50vw"
+                  className={`object-cover transition-transform duration-500 group-hover:scale-[1.03]${i === 1 ? " object-top" : ""}`}
                   priority={i === 0}
                 />
               </div>
@@ -134,7 +133,7 @@ export default async function Home() {
             <div className="relative flex items-start justify-between gap-3">
               <div className="flex flex-col gap-0.5">
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                  featured tool
+                  featured
                 </span>
                 <h2 className="text-2xl font-bold tracking-tight font-heading">
                   {pinnedTool.title}
