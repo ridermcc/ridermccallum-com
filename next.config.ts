@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       { source: "/europe", destination: "/europe/index.html" },
+      { source: "/herbanist-preview", destination: "/herbanist-preview/index.html" },
     ];
   },
 };

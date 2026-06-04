@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Herbanist · Blomsterhandel & florist i Sundsvall</title>
+<meta name="description" content="Herbanist är ingen vanlig blomsterbutik. Neonfärgade blommor mot mörka väggar, buketter som tar plats och en botanisk djungel mitt i Sundsvall." />
+
+<link rel="icon" href="/herbanist-preview/assets/logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    /* official brand palette */
+    --bg:        #111111;   /* Obsidian Night */
+    --bg-2:      #0c0c0c;
+    --panel:     #181410;   /* warm charcoal for section depth */
+    --ink:       #f6e6c2;   /* Warm Cream */
+    --ink-dim:   #c7b386;   /* dimmed cream */
+    --honey:     #ebb453;   /* Honey Mustard */
+    --terra:     #a15d25;   /* Burnt Terracotta */
+
+    --maxw: 1240px;
+    --ease: cubic-bezier(.22,.61,.36,1);
+
+    --display: "Shrikhand", serif;
+    --body:    "Hanken Grotesk", system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 18px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* analog film grain over everything */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: .05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  ::selection { background: var(--honey); color: #111; }
+
+  a { color: inherit; text-decoration: none; }
+  img, video { display: block; max-width: 100%; }
+
+  /* ---------- NAV ---------- */
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px clamp(20px, 5vw, 48px);
+    transition: background .4s var(--ease), padding .4s var(--ease);
+  }
+  .nav.scrolled {
+    background: rgba(17,17,17,.85);
+    backdrop-filter: blur(12px);
+    padding-top: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(246,230,194,.1);
+  }
+  .nav__brand img { height: clamp(22px, 2.6vw, 30px); width: auto; display: block; }
+  .nav__links { display: flex; gap: clamp(14px, 2vw, 34px); align-items: center; }
+  .nav__links a {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    opacity: .82;
+    transition: opacity .25s, color .25s;
+  }
+  .nav__links a:hover { opacity: 1; color: var(--honey); }
+  .nav__cta {
+    border: 1.5px solid var(--honey);
+    color: var(--honey) !important;
+    padding: 9px 18px;
+    border-radius: 40px;
+    opacity: 1 !important;
+  }
+  .nav__cta:hover { background: var(--honey); color: var(--bg) !important; }
+  @media (max-width: 720px) { .nav__links a:not(.nav__cta) { display: none; } }
+
+  /* ---------- HERO ---------- */
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+  }
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    background: url("/herbanist-preview/assets/in-store-arrrangement.jpg") center 32% / cover no-repeat;
+    transform: scale(1.08);
+    will-change: transform;
+  }
+  .hero__veil {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(120% 80% at 50% 18%, rgba(17,17,17,0) 30%, rgba(17,17,17,.5) 78%, rgba(17,17,17,.96) 100%),
+      linear-gradient(180deg, rgba(17,17,17,.55) 0%, rgba(17,17,17,.05) 30%, rgba(17,17,17,.15) 60%, var(--bg) 99%);
+  }
+  .hero__inner {
+    position: relative;
+    width: 100%;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 48px) clamp(48px, 9vh, 110px);
+    z-index: 2;
+  }
+  .hero__kicker {
+    font-weight: 600;
+    letter-spacing: .34em;
+    text-transform: uppercase;
+    font-size: clamp(11px, 1.4vw, 14px);
+    color: var(--honey);
+    margin-bottom: 22px;
+  }
+  .hero__logo {
+    width: min(680px, 78vw);
+    height: auto;
+    filter: drop-shadow(0 8px 26px rgba(0,0,0,.55)) drop-shadow(0 2px 0 rgba(161,93,37,.5));
+  }
+  .hero__sub {
+    margin-top: 26px;
+    max-width: 540px;
+    font-size: clamp(17px, 2.2vw, 23px);
+    color: var(--ink-dim);
+  }
+  .hero__scroll {
+    position: absolute;
+    right: clamp(20px, 5vw, 48px);
+    bottom: clamp(48px, 9vh, 110px);
+    z-index: 2;
+    writing-mode: vertical-rl;
+    font-size: 12px;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .hero__scroll::after {
+    content: "";
+    width: 1px; height: 54px;
+    background: linear-gradient(var(--honey), transparent);
+    animation: scrolldrop 1.8s var(--ease) infinite;
+  }
+  @keyframes scrolldrop { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
+  @media (max-width: 720px){ .hero__scroll{ display:none; } }
+
+  /* ---------- MARQUEE ---------- */
+  .marquee {
+    background: var(--honey);
+    color: var(--bg);
+    padding: 16px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    border-top: 3px solid var(--bg);
+    border-bottom: 3px solid var(--bg);
+  }
+  .marquee__track {
+    display: inline-flex;
+    animation: slide 32s linear infinite;
+  }
+  .marquee span {
+    font-family: var(--display);
+    font-size: clamp(20px, 3vw, 34px);
+    padding: 0 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .marquee span::after { content: "✿"; color: var(--terra); }
+  @keyframes slide { to { transform: translateX(-50%); } }
+
+  /* ---------- SECTION SHELL ---------- */
+  section { position: relative; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: clamp(70px, 12vh, 150px) clamp(20px, 5vw, 48px); }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--terra);
+    margin-bottom: 22px;
+  }
+  .eyebrow::before { content: ""; width: 30px; height: 2px; background: var(--terra); }
+
+  h2.section-title {
+    font-family: var(--display);
+    font-weight: 400;
+    line-height: 1.02;
+    font-size: clamp(38px, 7vw, 86px);
+    letter-spacing: .5px;
+    color: var(--ink);
+  }
+  .lede { margin-top: 26px; max-width: 620px; font-size: clamp(18px, 2.2vw, 22px); color: var(--ink-dim); }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(36px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* ---------- ESSENCE ---------- */
+  .essence { background: linear-gradient(180deg, var(--bg) 0%, var(--panel) 100%); }
+  .essence .wrap { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(36px, 6vw, 80px); align-items: center; }
+  .essence__copy h2 .word { color: var(--honey); }
+  .essence__media { position: relative; }
+  .essence__img {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    aspect-ratio: 4/5;
+    box-shadow: 0 30px 80px -30px #000;
+  }
+  .essence__img img { width: 100%; height: 100%; object-fit: cover; }
+  .essence__img .squiggle { position: absolute; bottom: -2px; left: -2px; width: 130px; color: var(--honey); z-index: 2; }
+  /* the real groovy sign artwork, pinned like a poster */
+  .essence__poster {
+    position: absolute;
+    top: -34px; right: -22px;
+    width: clamp(96px, 15vw, 150px);
+    transform: rotate(6deg);
+    background: var(--ink);
+    padding: 10px 10px 12px;
+    border-radius: 6px;
+    box-shadow: 0 16px 40px -12px #000;
+    z-index: 3;
+  }
+  .essence__poster img { width: 100%; display: block; }
+  @media (max-width: 860px){ .essence .wrap{ grid-template-columns: 1fr; } .essence__media{ order:-1; } .essence__poster{ top:-22px; } }
+
+  /* ---------- GALLERY ---------- */
+  .gallery { background: var(--panel); }
+  .gallery .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 44px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: 11vw;
+    gap: 16px;
+  }
+  .tile { position: relative; overflow: hidden; border-radius: 14px; background: #000; }
+  .tile img, .tile video { width: 100%; height: 100%; object-fit: cover; transition: transform 1.1s var(--ease); }
+  .tile:hover img, .tile:hover video { transform: scale(1.06); }
+  .tile::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(17,17,17,.55));
+    opacity: 0; transition: opacity .4s;
+  }
+  .tile:hover::after { opacity: 1; }
+  .tile .tag {
+    position: absolute; left: 14px; bottom: 12px; z-index: 2;
+    font-family: var(--display); font-size: 18px; color: var(--ink);
+    opacity: 0; transform: translateY(8px); transition: .4s var(--ease);
+  }
+  .tile:hover .tag { opacity: 1; transform: none; }
+  .t-a { grid-column: span 7; grid-row: span 4; }
+  .t-b { grid-column: span 5; grid-row: span 4; }
+  .t-c { grid-column: span 4; grid-row: span 3; }
+  .t-d { grid-column: span 4; grid-row: span 3; }
+  .t-e { grid-column: span 4; grid-row: span 3; }
+  .t-d img { object-position: center bottom; }
+  @media (max-width: 860px){
+    .grid { grid-auto-rows: 38vw; }
+    .t-a,.t-b,.t-c,.t-d,.t-e { grid-column: span 12; grid-row: span 1; }
+  }
+
+  /* ---------- OFFERINGS ---------- */
+  .make { background: linear-gradient(180deg, var(--panel), var(--bg)); }
+  .cards { margin-top: 50px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    border: 1.5px solid rgba(246,230,194,.14);
+    border-radius: 18px;
+    padding: 30px 28px 34px;
+    background: rgba(246,230,194,.02);
+    position: relative;
+    overflow: hidden;
+    transition: transform .5s var(--ease), border-color .5s, background .5s;
+  }
+  .card:hover { transform: translateY(-6px); background: rgba(246,230,194,.05); }
+  .card__num { font-family: var(--display); font-size: 15px; color: var(--terra); opacity: .9; }
+  .card h3 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 14px 0 12px; }
+  .card p { color: var(--ink-dim); font-size: 16.5px; }
+  .card .dot { position: absolute; top: 26px; right: 26px; width: 14px; height: 14px; border-radius: 50%; }
+  .card:nth-child(odd) .dot { background: var(--honey); }
+  .card:nth-child(even) .dot { background: var(--terra); }
+  .card:nth-child(odd):hover { border-color: var(--honey); }
+  .card:nth-child(even):hover { border-color: var(--terra); }
+  @media (max-width: 860px){ .cards { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px){ .cards { grid-template-columns: 1fr; } }
+
+  /* ---------- QUOTE BANNER ---------- */
+  .quote {
+    position: relative;
+    min-height: 78svh;
+    display: flex; align-items: center;
+    background: url("/herbanist-preview/assets/in-store-sign.jpg") center / cover no-repeat;
+    background-attachment: fixed;
+  }
+  .quote::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(17,17,17,.9) 0%, rgba(17,17,17,.55) 55%, rgba(17,17,17,.2) 100%); }
+  .quote .wrap { position: relative; }
+  .quote blockquote {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(30px, 5.4vw, 64px);
+    line-height: 1.08;
+    max-width: 760px;
+    text-shadow: 0 4px 30px rgba(0,0,0,.7);
+  }
+  .quote blockquote .hl { color: var(--honey); }
+  .quote cite { display: block; margin-top: 24px; font-style: normal; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-dim); }
+  @media (max-width: 720px){ .quote { background-attachment: scroll; } }
+
+  /* ---------- VISIT ---------- */
+  .visit { background: var(--bg); }
+  .visit .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(36px, 6vw, 80px); }
+  .info-row { display: flex; gap: 18px; padding: 22px 0; border-bottom: 1px solid rgba(246,230,194,.12); }
+  .info-row:first-of-type { border-top: 1px solid rgba(246,230,194,.12); margin-top: 30px; }
+  .info-row .k { font-family: var(--display); font-size: 19px; min-width: 130px; color: var(--honey); }
+  .info-row .v { color: var(--ink); }
+  .info-row .v span { display: block; color: var(--ink-dim); font-size: 16px; }
+  .btn-row { margin-top: 34px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    font-weight: 700; letter-spacing: .04em;
+    padding: 14px 26px; border-radius: 40px;
+    transition: transform .3s var(--ease), box-shadow .3s, background .3s, color .3s;
+  }
+  .btn--solid { background: var(--honey); color: #111; }
+  .btn--solid:hover { transform: translateY(-3px); box-shadow: 0 14px 30px -10px var(--honey); }
+  .btn--ghost { border: 1.5px solid var(--terra); color: var(--honey); }
+  .btn--ghost:hover { background: var(--terra); color: var(--ink); transform: translateY(-3px); }
+  .map-card { border-radius: 18px; overflow: hidden; min-height: 360px; position: relative; box-shadow: 0 30px 80px -30px #000; }
+  .map-card img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .map-card .pin {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%);
+    background: rgba(17,17,17,.8); backdrop-filter: blur(6px);
+    border: 1.5px solid var(--honey); color: var(--ink);
+    padding: 14px 20px; border-radius: 14px; text-align: center;
+  }
+  .map-card .pin b { font-family: var(--display); font-weight: 400; display: block; font-size: 20px; color: var(--honey); margin-bottom: 4px; }
+  @media (max-width: 860px){ .visit .wrap{ grid-template-columns: 1fr; } }
+
+  /* ---------- FOOTER ---------- */
+  footer { background: var(--bg-2); border-top: 1px solid rgba(246,230,194,.1); }
+  footer .wrap { padding-top: 64px; padding-bottom: 48px; }
+  .foot-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .foot-brand img { width: min(420px, 70vw); height: auto; display: block; }
+  .foot-soc { display: flex; gap: 18px; }
+  .foot-soc a { font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-size: 13px; opacity: .8; transition: .25s; }
+  .foot-soc a:hover { opacity: 1; color: var(--honey); }
+  .foot-bot { margin-top: 46px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--ink-dim); }
+</style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav" id="nav">
+    <a class="nav__brand" href="#top" aria-label="Herbanist"><img src="/herbanist-preview/assets/logo.png" alt="Herbanist" /></a>
+    <div class="nav__links">
+      <a href="#essence">Butiken</a>
+      <a href="#galleri">Galleri</a>
+      <a href="#sortiment">Sortiment</a>
+      <a class="nav__cta" href="#besok">Hitta hit</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="hero__bg" id="heroBg"></div>
+    <div class="hero__veil"></div>
+    <div class="hero__inner">
+      <p class="hero__kicker">Torggatan 2 · Sundsvall</p>
+      <img class="hero__logo" src="/herbanist-preview/assets/logo.png" alt="Herbanist" />
+      <p class="hero__sub">Ingen vanlig blomsterbutik. En botanisk djungel där färgerna skruvas upp och buketterna tar plats.</p>
+    </div>
+    <div class="hero__scroll">Stig in</div>
+  </header>
+
+  <!-- MARQUEE -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee__track">
+      <span>Färska blommor</span><span>Buketter</span><span>Krukväxter</span><span>Torkade blommor</span><span>Krukor &amp; vaser</span><span>Bröllop</span><span>Begravning</span><span>Växtråd</span>
+      <span>Färska blommor</span><span>Buketter</span><span>Krukväxter</span><span>Torkade blommor</span><span>Krukor &amp; vaser</span><span>Bröllop</span><span>Begravning</span><span>Växtråd</span>
+    </div>
+  </div>
+
+  <!-- ESSENCE -->
+  <section class="essence" id="essence">
+    <div class="wrap">
+      <div class="essence__copy reveal">
+        <span class="eyebrow">Butiken</span>
+        <h2 class="section-title">Mer är <span class="word">alltid</span> mer.</h2>
+        <p class="lede">Stig in från Torggatan och världen byter färg. Neonblommor mot mörka väggar. Torkat som lyser i orange och magenta. En soffa mitt i djungeln. Här är blomsterhandel en upplevelse, inte ett ärende.</p>
+        <p class="lede">Vi bygger buketter som tar plats. Stora, dramatiska och fullt levande. Sen hjälper vi dig hålla allting grönt.</p>
+      </div>
+      <div class="essence__media reveal">
+        <div class="essence__poster"><img src="/herbanist-preview/assets/flyer_herbanist.png" alt="Herbanists groovy butiksaffisch" /></div>
+        <div class="essence__img">
+          <img src="/herbanist-preview/assets/in-store-full-view.jpg" alt="Interiören hos Herbanist, full av färgstarka blommor mot mörka väggar" />
+          <svg class="squiggle" viewBox="0 0 120 40" fill="none"><path d="M2 20c10-18 22 18 32 0s22 18 32 0 22 18 32 0 20 0 20 0" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GALLERY -->
+  <section class="gallery" id="galleri">
+    <div class="wrap">
+      <div class="head reveal">
+        <div>
+          <span class="eyebrow">Galleri</span>
+          <h2 class="section-title">In i djungeln</h2>
+        </div>
+        <p class="lede" style="margin:0;max-width:380px">Skarpt ljus mot mörka bakgrunder. Blommorna får glöda. Precis som i butiken.</p>
+      </div>
+      <div class="grid reveal">
+        <a class="tile t-a"><video src="/herbanist-preview/assets/herbanist-walkthrough.mp4" autoplay muted loop playsinline></video><span class="tag">Liv i butiken</span></a>
+        <a class="tile t-b"><img src="/herbanist-preview/assets/in-store-arrangement-2.jpg" alt="Säsongens arrangemang i varma toner" /><span class="tag">Säsongens färger</span></a>
+        <a class="tile t-c"><img src="/herbanist-preview/assets/in-store-multiple-arrangements.jpg" alt="Vågiga keramikfat och torkade blommor" /><span class="tag">Keramik med karaktär</span></a>
+        <a class="tile t-d"><img src="/herbanist-preview/assets/boxed-plants.jpg" alt="Krukväxter i plåtlådor mot vinröd vägg" /><span class="tag">Gröna vänner</span></a>
+        <a class="tile t-e"><img src="/herbanist-preview/assets/storefront-sign.jpg" alt="Herbanists groovy skylt på gatan" /><span class="tag">Skylten på Torggatan</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- OFFERINGS -->
+  <section class="make" id="sortiment">
+    <div class="wrap">
+      <div class="reveal">
+        <span class="eyebrow">Sortiment</span>
+        <h2 class="section-title">Vad vi gör</h2>
+      </div>
+      <div class="cards reveal">
+        <div class="card"><span class="dot"></span><p class="card__num">01</p><h3>Buketter</h3><p>Färska buketter som tar plats. Vi väljer det som lyser starkast just idag.</p></div>
+        <div class="card"><span class="dot"></span><p class="card__num">02</p><h3>Krukväxter</h3><p>Gröna vänner för varje fönster, hörn och skrymsle i hemmet.</p></div>
+        <div class="card"><span class="dot"></span><p class="card__num">03</p><h3>Torkade blommor</h3><p>Torkat i färger du inte visste fanns. Håller säsong efter säsong.</p></div>
+        <div class="card"><span class="dot"></span><p class="card__num">04</p><h3>Krukor &amp; vaser</h3><p>Keramik med karaktär. Vågigt, glaserat och en aning galet.</p></div>
+        <div class="card"><span class="dot"></span><p class="card__num">05</p><h3>Växtråd</h3><p>Vi hjälper dig hålla allt levande. Fråga oss om vad som helst.</p></div>
+        <div class="card"><span class="dot"></span><p class="card__num">06</p><h3>Event</h3><p>Bröllop, begravning och fest. Vi klär dagen i blommor.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUOTE -->
+  <section class="quote">
+    <div class="wrap">
+      <blockquote class="reveal">Ja, det finns <span class="hl">alltid</span> plats för en växt till. Eller två..</blockquote>
+      <cite class="reveal">— Skylten i butiken</cite>
+    </div>
+  </section>
+
+  <!-- VISIT -->
+  <section class="visit" id="besok">
+    <div class="wrap">
+      <div class="reveal">
+        <span class="eyebrow">Hitta hit</span>
+        <h2 class="section-title">Besök oss</h2>
+        <p class="lede">Mitt i Sundsvall, ett kvarter från torget. Kom in och låt färgerna ta över en stund.</p>
+
+        <div class="info-row"><span class="k">Adress</span><span class="v">Torggatan 2<span>852 32 Sundsvall</span></span></div>
+        <div class="info-row"><span class="k">Öppet</span><span class="v">Mån–Fre 10–18<span>Lör 11–15 · Sön stängt</span></span></div>
+        <div class="info-row"><span class="k">Ring</span><span class="v">060-61 43 05</span></div>
+        <div class="info-row"><span class="k">Mejl</span><span class="v">info@herbanist.se</span></div>
+
+        <div class="btn-row">
+          <a class="btn btn--solid" href="tel:+4660614305">Ring butiken</a>
+          <a class="btn btn--ghost" href="https://maps.google.com/?q=Herbanist+Torggatan+2+Sundsvall" target="_blank" rel="noopener">Visa på karta</a>
+        </div>
+      </div>
+      <a class="map-card reveal" href="https://maps.google.com/?q=Herbanist+Torggatan+2+Sundsvall" target="_blank" rel="noopener" aria-label="Öppna karta">
+        <img src="/herbanist-preview/assets/in-store-multiple-arrangements.jpg" alt="Herbanist butiksmiljö" />
+        <span class="pin"><b>Herbanist</b>Torggatan 2 · Sundsvall</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-top">
+        <div class="foot-brand"><img src="/herbanist-preview/assets/logo.png" alt="Herbanist" /></div>
+        <div class="foot-soc">
+          <a href="https://www.instagram.com/herbanist" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.facebook.com/herbanist" target="_blank" rel="noopener">Facebook</a>
+          <a href="mailto:info@herbanist.se">Mejl</a>
+        </div>
+      </div>
+      <div class="foot-bot">
+        <span>Blomsterhandel &amp; florist · Torggatan 2, Sundsvall</span>
+        <span>© 2026 Herbanist</span>
+      </div>
+    </div>
+  </footer>
+
+<script>
+  const nav = document.getElementById('nav');
+  const onScroll = () => {
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+    const bg = document.getElementById('heroBg');
+    if (bg && window.scrollY < window.innerHeight) {
+      bg.style.transform = `scale(1.08) translateY(${window.scrollY * 0.18}px)`;
+    }
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.16 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
