@@ -30,7 +30,7 @@
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; overflow-x: hidden; }
 
   body {
     background: var(--bg);
@@ -298,38 +298,6 @@
     .tile .tag { opacity: 1; transform: none; font-size: 16px; left: 14px; bottom: 12px; }
   }
 
-  /* ---------- OFFERINGS ---------- */
-  .make { background: linear-gradient(180deg, var(--panel), var(--bg)); }
-  .cards { margin-top: 50px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .card {
-    border: 1.5px solid rgba(246,230,194,.14);
-    border-radius: 18px;
-    padding: 30px 28px 34px;
-    background: rgba(246,230,194,.02);
-    position: relative;
-    overflow: hidden;
-    transition: transform .5s var(--ease), border-color .5s, background .5s;
-  }
-  .card:hover { transform: translateY(-6px); background: rgba(246,230,194,.05); }
-  .card__num { font-family: var(--display); font-size: 15px; color: var(--terra); opacity: .9; }
-  .card h3 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 14px 0 12px; }
-  .card p { color: var(--ink-dim); font-size: 16.5px; }
-  .card .dot { position: absolute; top: 26px; right: 26px; width: 14px; height: 14px; border-radius: 50%; }
-  .card:nth-child(odd) .dot { background: var(--honey); }
-  .card:nth-child(even) .dot { background: var(--terra); }
-  .card:nth-child(odd):hover { border-color: var(--honey); }
-  .card:nth-child(even):hover { border-color: var(--terra); }
-  @media (max-width: 860px){ .cards { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 560px){
-    /* stay 2-up but tighten everything so 6 cards stay short and dense */
-    .cards { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 28px; }
-    .card { padding: 13px 13px 14px; border-radius: 12px; }
-    .card__num { font-size: 12px; }
-    .card h3 { font-size: 18px; margin: 6px 0 5px; }
-    .card p { font-size: 13px; line-height: 1.38; }
-    .card .dot { width: 9px; height: 9px; top: 13px; right: 13px; }
-  }
-
   /* ---------- QUOTE BANNER ---------- */
   .quote {
     position: relative;
@@ -391,6 +359,66 @@
   .foot-soc a:hover { opacity: 1; color: var(--honey); }
   .foot-bot { margin-top: 46px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--ink-dim); }
 
+  /* ---------- HERO CTA ---------- */
+  .hero__cta { margin-top: 30px; display: flex; gap: 14px; flex-wrap: wrap; }
+
+  /* ---------- ORDER FORM ---------- */
+  .order { background: linear-gradient(180deg, var(--bg) 0%, var(--panel) 100%); }
+  .order .wrap { display: grid; grid-template-columns: .9fr 1.1fr; gap: clamp(36px, 6vw, 80px); align-items: start; }
+  .order__list { margin-top: 28px; display: grid; gap: 13px; }
+  .order__list li { display: flex; gap: 12px; align-items: flex-start; list-style: none; color: var(--ink-dim); font-size: 16px; }
+  .order__list li::before { content: "✿"; color: var(--terra); font-size: 14px; line-height: 1.6; }
+
+  .form-card {
+    border: 1.5px solid rgba(246,230,194,.14);
+    border-radius: 20px;
+    padding: clamp(22px, 4vw, 34px);
+    background: rgba(246,230,194,.02);
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .field--full { grid-column: 1 / -1; }
+  .field label { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+  .field label .req { color: var(--terra); }
+  .field input, .field select, .field textarea {
+    font-family: var(--body); font-size: 16px; color: var(--ink);
+    background: rgba(17,17,17,.5);
+    border: 1.5px solid rgba(246,230,194,.16);
+    border-radius: 12px; padding: 13px 15px;
+    width: 100%; min-width: 0; max-width: 100%;
+    -webkit-appearance: none; appearance: none;
+    transition: border-color .25s, background .25s;
+  }
+  /* iOS date inputs keep a native min-width and overflow narrow screens otherwise */
+  .field input[type="date"] { display: block; }
+  .field input::placeholder, .field textarea::placeholder { color: rgba(199,179,134,.5); }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--honey); background: rgba(17,17,17,.72);
+  }
+  .field textarea { resize: vertical; min-height: 116px; line-height: 1.5; }
+  .field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.82); opacity: .7; cursor: pointer; }
+  .field select {
+    appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 40px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ebb453' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 15px center;
+  }
+  .form-card .btn { margin-top: 18px; border: none; cursor: pointer; font-family: var(--body); width: 100%; }
+  .form-note { margin-top: 14px; font-size: 13px; color: var(--ink-dim); text-align: center; }
+
+  .order__success {
+    border: 1.5px solid var(--honey);
+    border-radius: 20px;
+    padding: clamp(34px, 5vw, 54px);
+    background: rgba(235,180,83,.05);
+    text-align: center;
+  }
+  .order__success h3 { font-family: var(--display); font-weight: 400; font-size: clamp(34px, 5vw, 48px); color: var(--honey); margin-bottom: 12px; }
+  .order__success p { color: var(--ink-dim); max-width: 360px; margin: 0 auto; }
+  .order__success .squig { width: 90px; color: var(--terra); margin: 18px auto 0; }
+  [hidden] { display: none !important; }
+  @media (max-width: 860px){ .order .wrap { grid-template-columns: 1fr; } }
+  @media (max-width: 560px){ .form-grid { grid-template-columns: 1fr; } }
+
   /* ---------- MOBILE POLISH ---------- */
   @media (max-width: 600px){
     /* section padding compounds across 6 sections — pull it in hard */
@@ -410,8 +438,23 @@
     /* a touch less letterbox on the parallax quote */
     .quote { min-height: 58svh; }
 
-    /* visit map can be shorter on a phone */
-    .map-card { min-height: 240px; }
+    /* drop the map image on phones — the "Visa på karta" button covers it */
+    .map-card { display: none; }
+
+    /* order form: tighter card, denser fields, full-bleed feel on phones */
+    .order .wrap { gap: 26px; }
+    .order__list { margin-top: 20px; gap: 11px; }
+    .order__list li { font-size: 15px; }
+    .form-card { padding: 18px 16px; border-radius: 16px; }
+    .form-grid { gap: 13px; }
+    .field { gap: 6px; }
+    .field label { font-size: 11.5px; }
+    .field input, .field select, .field textarea { padding: 12px 14px; border-radius: 11px; }
+    .field textarea { min-height: 104px; }
+    .form-card .btn { margin-top: 12px; }
+    .form-note { margin-top: 12px; font-size: 12.5px; }
+    .order__success { padding: 34px 22px; }
+    .order__success p { font-size: 15.5px; }
   }
 </style>
 </head>
@@ -421,10 +464,9 @@
   <nav class="nav" id="nav">
     <a class="nav__brand" href="#top" aria-label="Herbanist"><img src="/herbanist-preview/assets/logo.png" alt="Herbanist" /></a>
     <div class="nav__links">
-      <a href="#essence">Butiken</a>
       <a href="#galleri">Galleri</a>
-      <a href="#sortiment">Sortiment</a>
-      <a class="nav__cta" href="#besok">Hitta hit</a>
+      <a href="#besok">Hitta hit</a>
+      <a class="nav__cta" href="#bestall">Beställ</a>
     </div>
   </nav>
 
@@ -436,6 +478,10 @@
       <p class="hero__kicker">Torggatan 2 · Sundsvall</p>
       <img class="hero__logo" src="/herbanist-preview/assets/logo.png" alt="Herbanist" />
       <p class="hero__sub">Ingen vanlig blomsterbutik. En botanisk djungel där färgerna skruvas upp och buketterna tar plats.</p>
+      <div class="hero__cta">
+        <a class="btn btn--solid" href="#bestall">Beställ blommor</a>
+        <a class="btn btn--ghost" href="#galleri">Se galleriet</a>
+      </div>
     </div>
     <div class="hero__scroll">Stig in</div>
   </header>
@@ -487,20 +533,67 @@
     </div>
   </section>
 
-  <!-- OFFERINGS -->
-  <section class="make" id="sortiment">
+  <!-- ORDER -->
+  <section class="order" id="bestall">
     <div class="wrap">
-      <div class="reveal">
-        <span class="eyebrow">Sortiment</span>
-        <h2 class="section-title">Vad vi gör</h2>
+      <div class="order__intro reveal">
+        <span class="eyebrow">Beställ</span>
+        <h2 class="section-title">Skicka en förfrågan</h2>
+        <p class="lede">Berätta vad du drömmer om så hör vi av oss med förslag och pris. Buketter, krukväxter eller blommor.</p>
+        <ul class="order__list">
+          <li>Svar inom en arbetsdag, oftast snabbare.</li>
+          <li>Upphämtning i butiken eller leverans i Sundsvall.</li>
+          <li>Osäker på vad du vill ha? Beskriv tillfället, vi löser resten.</li>
+        </ul>
       </div>
-      <div class="cards reveal">
-        <div class="card"><span class="dot"></span><p class="card__num">01</p><h3>Buketter</h3><p>Färska buketter som tar plats. Vi väljer det som lyser starkast just idag.</p></div>
-        <div class="card"><span class="dot"></span><p class="card__num">02</p><h3>Krukväxter</h3><p>Gröna vänner för varje fönster, hörn och skrymsle i hemmet.</p></div>
-        <div class="card"><span class="dot"></span><p class="card__num">03</p><h3>Torkade blommor</h3><p>Torkat i färger du inte visste fanns. Håller säsong efter säsong.</p></div>
-        <div class="card"><span class="dot"></span><p class="card__num">04</p><h3>Krukor &amp; vaser</h3><p>Keramik med karaktär. Vågigt, glaserat och en aning galet.</p></div>
-        <div class="card"><span class="dot"></span><p class="card__num">05</p><h3>Växtråd</h3><p>Vi hjälper dig hålla allt levande. Fråga oss om vad som helst.</p></div>
-        <div class="card"><span class="dot"></span><p class="card__num">06</p><h3>Event</h3><p>Bröllop, begravning och fest. Vi klär dagen i blommor.</p></div>
+
+      <div class="reveal">
+        <!-- Front-end only for now: submit shows a confirmation, nothing is sent.
+             To go live, point the handler at Formspree/Web3Forms or a Vercel function. -->
+        <form class="form-card" id="orderForm" novalidate>
+          <div class="form-grid">
+            <div class="field">
+              <label for="f-name">Namn <span class="req">*</span></label>
+              <input id="f-name" name="name" type="text" placeholder="För- och efternamn" required />
+            </div>
+            <div class="field">
+              <label for="f-email">E-post <span class="req">*</span></label>
+              <input id="f-email" name="email" type="email" placeholder="du@exempel.se" required />
+            </div>
+            <div class="field">
+              <label for="f-phone">Telefon</label>
+              <input id="f-phone" name="phone" type="tel" placeholder="Valfritt" />
+            </div>
+            <div class="field">
+              <label for="f-type">Vad gäller det? <span class="req">*</span></label>
+              <select id="f-type" name="type" required>
+                <option value="" disabled selected>Välj…</option>
+                <option>Buketter</option>
+                <option>Krukväxter</option>
+                <option>Torkade blommor</option>
+                <option>Krukor &amp; vaser</option>
+                <option>Event (bröllop, begravning, fest)</option>
+                <option>Annat</option>
+              </select>
+            </div>
+            <div class="field field--full">
+              <label for="f-date">Önskat datum</label>
+              <input id="f-date" name="date" type="date" />
+            </div>
+            <div class="field field--full">
+              <label for="f-msg">Meddelande</label>
+              <textarea id="f-msg" name="message" placeholder="Färger, stil, budget, tillfälle…"></textarea>
+            </div>
+          </div>
+          <button class="btn btn--solid" type="submit">Skicka förfrågan</button>
+          <p class="form-note">Vi använder dina uppgifter bara för att svara på din förfrågan.</p>
+        </form>
+
+        <div class="order__success" id="orderSuccess" hidden>
+          <h3>Tack!</h3>
+          <p>Din förfrågan är mottagen. Vi hör av oss inom en arbetsdag, oftast snabbare.</p>
+          <svg class="squig" viewBox="0 0 120 40" fill="none"><path d="M2 20c10-18 22 18 32 0s22 18 32 0 22 18 32 0 20 0 20 0" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+        </div>
       </div>
     </div>
   </section>
@@ -572,6 +665,20 @@
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
   }, { threshold: 0.16 });
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Order form — front-end only. Show a confirmation; wire up real delivery later.
+  const orderForm = document.getElementById('orderForm');
+  if (orderForm) {
+    orderForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!orderForm.reportValidity()) return;   // native required/email validation
+      const success = document.getElementById('orderSuccess');
+      orderForm.hidden = true;
+      success.hidden = false;
+      success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // TODO: POST the form data to Formspree/Web3Forms or a Vercel function.
+    });
+  }
 </script>
 </body>
 </html>
