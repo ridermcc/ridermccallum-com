@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/", label: "~" },
-  { href: "/tools", label: "tools" },
   { href: "/notes", label: "notes" },
+  { href: "/tools", label: "tools" },
 ];
 
 function LogoMark({ className }: { className?: string }) {

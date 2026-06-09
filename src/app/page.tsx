@@ -60,10 +60,10 @@ export default async function Home() {
             </div>
             <div className="flex flex-col gap-3">
               <h1 className="text-4xl font-bold tracking-tight font-heading sm:text-5xl">
-                Hockey <span className="text-accent">&</span> Software
+                <span className="text-accent">Rider</span> McCallum
               </h1>
               <p className="max-w-xl text-base leading-7 text-muted sm:text-lg sm:leading-8">
-                Sharing while playing and building.
+                Sharing things I learn and build.
               </p>
               <span className="w-fit font-mono text-xs text-accent sm:text-muted transition-colors sm:group-hover:text-accent">
                 <span className="inline-flex items-center gap-0">
@@ -92,8 +92,8 @@ export default async function Home() {
               <span className="text-accent">$</span> whoami
             </div>
             <div style={{ color: "#a1a1aa" }}>
-              hockey player. software builder.<br />
-              building tools for athletes.<span className="caret" aria-hidden />
+              hockey player<br />
+              and website builder.<span className="caret" aria-hidden />
             </div>
           </div>
         </section>

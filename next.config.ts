@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/europe", destination: "/europe/index.html" },
       { source: "/herbanist-preview", destination: "/herbanist-preview/index.html" },
+      { source: "/tantanci-preview", destination: "/tantanci-preview/index.html" },
     ];
   },
 };

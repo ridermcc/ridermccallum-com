@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tant Anci &amp; Fröken Sara · Ekologiskt café &amp; restaurang i Sundsvall</title>
+<meta name="description" content="Prisbelönt, KRAV-certifierat café och restaurang mitt i Sundsvall. Ekologisk mat gjord med kärlek. Lunch, kvällsmeny, fika, beställningstårtor och catering." />
+
+<link rel="icon" href="/tantanci-preview/assets/logo.webp" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg:        #fbf5ea;   /* warm cream */
+    --paper:     #fffdf8;   /* menu / card paper */
+    --bg-2:      #f6ecda;
+    --ink:       #2e251f;   /* warm espresso */
+    --ink-dim:   #7c6e60;
+    --pink:      #c52a6e;   /* logo magenta */
+    --pink-deep: #a51f59;
+    --gold:      #b0802f;   /* tree gold-brown */
+    --green:     #6e7c43;   /* leaf */
+    --line:      rgba(46,37,31,.14);
+    --dot:       rgba(176,128,47,.55);
+
+    --maxw: 1180px;
+    --ease: cubic-bezier(.2,.6,.2,1);
+
+    --display: "Fraunces", Georgia, serif;
+    --script:  "Caveat", cursive;
+    --body:    "Hanken Grotesk", system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 18px; line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--pink); color: #fff; }
+  a { color: inherit; text-decoration: none; }
+  img, video { display: block; max-width: 100%; }
+
+  .shell { max-width: var(--maxw); margin: 0 auto; padding-left: clamp(20px, 5vw, 44px); padding-right: clamp(20px, 5vw, 44px); }
+  .sprig { color: var(--green); flex: none; }
+
+  /* shared headings */
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-weight: 700; letter-spacing: .2em; text-transform: uppercase;
+    font-size: 12.5px; color: var(--gold);
+  }
+  h2.title {
+    font-family: var(--display); font-weight: 500;
+    font-size: clamp(30px, 4.6vw, 54px); line-height: 1.06; letter-spacing: -.4px;
+    margin-top: 14px;
+  }
+  h2.title em { font-style: italic; color: var(--pink); }
+  .muted { color: var(--ink-dim); }
+
+  /* reveal */
+  .up { opacity: 0; transform: translateY(22px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+  .up.in { opacity: 1; transform: none; }
+
+  /* ============ HEADER ============ */
+  header.site { position: sticky; top: 0; z-index: 80; background: var(--bg); }
+  .utility {
+    background: var(--ink); color: #f3e7d2;
+    font-size: 13px; letter-spacing: .02em;
+  }
+  .utility__in { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 38px; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .status .d { width: 8px; height: 8px; border-radius: 50%; background: #8bbf5a; box-shadow: 0 0 0 3px rgba(139,191,90,.25); }
+  .status.closed .d { background: #e07a52; box-shadow: 0 0 0 3px rgba(224,122,82,.25); }
+  .utility__r { display: flex; align-items: center; gap: 14px; opacity: .92; }
+  .utility__r a:hover { color: #fff; }
+  .utility__r .sep { opacity: .4; }
+  @media (max-width: 640px){ .utility__r .addr { display: none; } }
+
+  .masthead { border-bottom: 1px solid var(--line); transition: padding .35s var(--ease); }
+  .masthead__in { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 18px; padding: 16px 0; transition: padding .35s var(--ease); }
+  header.site.shrink .masthead__in { padding: 9px 0; }
+  .mlinks { display: flex; gap: clamp(14px, 2.4vw, 30px); }
+  .mlinks--r { justify-content: flex-end; }
+  .mlinks a {
+    font-size: 13.5px; font-weight: 600; letter-spacing: .04em;
+    padding: 6px 2px; position: relative; color: var(--ink); opacity: .85;
+  }
+  .mlinks a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 2px; background: var(--pink); transition: right .3s var(--ease); }
+  .mlinks a:hover { opacity: 1; }
+  .mlinks a:hover::after { right: 0; }
+  .brand img { height: clamp(52px, 6vw, 68px); width: auto; transition: height .35s var(--ease); }
+  header.site.shrink .brand img { height: 46px; }
+  @media (max-width: 760px){
+    .masthead__in { grid-template-columns: auto 1fr; }
+    .mlinks { display: none; }
+    .mlinks--r { display: flex; justify-content: flex-end; }
+    .mlinks--r a:not(.book) { display: none; }
+    .book { background: var(--pink); color: #fff !important; padding: 9px 16px !important; border-radius: 30px; opacity: 1 !important; }
+    .book::after { display: none; }
+  }
+
+  /* ============ HERO (split) ============ */
+  .intro { padding: clamp(40px, 7vw, 84px) 0 clamp(30px, 5vw, 60px); }
+  .intro__grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(28px, 5vw, 70px); align-items: center; }
+  .intro__kicker { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 12.5px; color: var(--pink); }
+  .intro h1 {
+    font-family: var(--display); font-weight: 500;
+    font-size: clamp(38px, 6vw, 76px); line-height: 1.02; letter-spacing: -1px;
+    margin: 18px 0 0; text-wrap: balance;
+  }
+  .intro h1 em { font-style: italic; color: var(--pink); }
+  .intro__p { margin-top: 20px; max-width: 46ch; font-size: clamp(17px, 1.7vw, 19px); color: var(--ink-dim); }
+  .intro__btns { margin-top: 28px; display: flex; gap: 13px; flex-wrap: wrap; }
+  .intro__hours { margin-top: 22px; font-size: 14.5px; color: var(--ink-dim); display: inline-flex; align-items: center; gap: 9px; }
+
+  .btn { font-weight: 700; letter-spacing: .01em; padding: 13px 24px; border-radius: 40px; transition: transform .3s var(--ease), box-shadow .3s, background .3s, color .3s; display: inline-block; }
+  .btn--solid { background: var(--pink); color: #fff; }
+  .btn--solid:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -12px var(--pink); }
+  .btn--line { border: 1.5px solid var(--gold); color: var(--gold); }
+  .btn--line:hover { background: var(--gold); color: #fff; transform: translateY(-2px); }
+
+  /* hero photo composition */
+  .intro__art { position: relative; }
+  .frame { border-radius: 220px 220px 18px 18px; overflow: hidden; aspect-ratio: 4/5; box-shadow: 0 40px 70px -40px rgba(46,37,31,.5); }
+  .frame img { width: 100%; height: 100%; object-fit: cover; }
+  .polaroid {
+    position: absolute; left: -26px; bottom: -22px; width: 44%;
+    background: var(--paper); padding: 9px 9px 34px; border-radius: 6px;
+    box-shadow: 0 24px 44px -20px rgba(46,37,31,.55); transform: rotate(-5deg);
+  }
+  .polaroid img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 3px; }
+  .polaroid figcaption { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-family: var(--script); font-size: 22px; color: var(--pink); }
+  .leaf-top { position: absolute; top: -22px; right: 14%; transform: rotate(12deg); color: var(--green); width: 66px; }
+  @media (max-width: 860px){
+    .intro__grid { grid-template-columns: 1fr; }
+    .intro__art { max-width: 460px; margin: 8px auto 30px; order: -1; }
+  }
+
+  /* ============ VALUES ============ */
+  .values { background: var(--ink); color: #f4e8d3; }
+  .values__in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 8px; padding: 20px 0; text-align: center; }
+  .values b { font-family: var(--display); font-weight: 500; font-size: clamp(15px, 2vw, 20px); letter-spacing: .01em; }
+  .values .sprig { color: #c98fb0; width: 18px; }
+
+  /* ============ STORY / OM OSS ============ */
+  .story { padding: clamp(56px, 9vw, 110px) 0 0; }
+  .story__in { max-width: 760px; margin: 0 auto; text-align: center; }
+  .story__lead { font-family: var(--display); font-weight: 400; font-style: italic; font-size: clamp(22px, 3vw, 32px); line-height: 1.32; margin-top: 20px; }
+  .story__lead .hl { color: var(--pink); font-style: normal; }
+  .story__p { margin-top: 22px; color: var(--ink-dim); font-size: 17.5px; }
+  .signature { font-family: var(--script); font-size: clamp(30px, 4vw, 42px); color: var(--pink); margin-top: 24px; }
+  .story__strip { margin-top: 44px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .story__strip figure { border-radius: 16px; overflow: hidden; aspect-ratio: 5/4; }
+  .story__strip img { width: 100%; height: 100%; object-fit: cover; transition: transform 1s var(--ease); }
+  .story__strip figure:hover img { transform: scale(1.05); }
+  @media (max-width: 620px){ .story__strip { grid-template-columns: 1fr 1fr; } .story__strip figure:last-child { grid-column: span 2; aspect-ratio: 16/9; } }
+
+  /* ============ MENU (printed card) ============ */
+  .menu { padding: clamp(56px, 9vw, 110px) 0; }
+  .menu__head { text-align: center; max-width: 640px; margin: 0 auto 40px; }
+  .menu__head p { margin-top: 16px; color: var(--ink-dim); }
+  .menucard {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: clamp(28px, 4vw, 52px);
+    box-shadow: 0 50px 90px -60px rgba(46,37,31,.5);
+    display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 5vw, 64px);
+    position: relative;
+  }
+  .menucard::before {
+    content: "✿"; position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+    color: var(--dot); font-size: 18px;
+  }
+  .mcat + .mcat { margin-top: 26px; }
+  .mcat__h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .mcat__h h3 { font-family: var(--display); font-weight: 500; font-size: 22px; }
+  .mcat__h .tag { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--green); background: rgba(110,124,67,.12); padding: 3px 9px; border-radius: 20px; }
+  .mrow { display: flex; align-items: baseline; padding: 7px 0; }
+  .mrow .nm { font-weight: 600; font-size: 16.5px; }
+  .mrow .nm small { display: block; font-weight: 400; font-size: 13.5px; color: var(--ink-dim); letter-spacing: 0; }
+  .mrow .ld { flex: 1 1 auto; margin: 0 9px; border-bottom: 2px dotted var(--dot); align-self: flex-end; transform: translateY(-4px); min-width: 18px; }
+  .mrow .pr { font-weight: 700; color: var(--pink); white-space: nowrap; }
+  .menu__note { display: flex; align-items: center; justify-content: center; gap: 12px 16px; flex-wrap: wrap; margin-top: 28px; font-size: 14.5px; color: var(--ink-dim); }
+  .menu__note .pill { background: rgba(176,128,47,.13); color: var(--gold); font-weight: 600; padding: 6px 13px; border-radius: 20px; }
+  @media (max-width: 760px){ .menucard { grid-template-columns: 1fr; } }
+
+  /* ============ BOBA band ============ */
+  .boba { padding: 0 0 clamp(40px, 6vw, 80px); }
+  .boba__band {
+    background: linear-gradient(115deg, var(--pink), var(--pink-deep));
+    color: #fff; border-radius: 26px; overflow: hidden;
+    display: grid; grid-template-columns: 1.4fr 1fr; align-items: center; gap: 24px;
+    padding: clamp(28px, 4vw, 50px);
+  }
+  .boba__band h3 { font-family: var(--display); font-weight: 500; font-size: clamp(24px, 3.4vw, 40px); line-height: 1.06; }
+  .boba__band p { margin-top: 12px; color: rgba(255,255,255,.9); max-width: 48ch; }
+  .boba__tags { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 7px; }
+  .boba__tags span { font-size: 13px; font-weight: 600; background: rgba(255,255,255,.16); padding: 6px 13px; border-radius: 30px; }
+  .boba__price { text-align: right; }
+  .boba__price .big { font-family: var(--script); font-size: clamp(34px, 5vw, 56px); line-height: 1; }
+  .boba__price .small { display: block; font-size: 14px; opacity: .85; margin-top: 4px; }
+  @media (max-width: 680px){ .boba__band { grid-template-columns: 1fr; } .boba__price { text-align: left; } }
+
+  /* ============ TÅRTOR & CATERING (postcards) ============ */
+  .cards { padding: 0 0 clamp(56px, 9vw, 110px); }
+  .cards__head { text-align: center; margin-bottom: 40px; }
+  .postcards { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .postcard { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; transition: transform .4s var(--ease), box-shadow .4s; }
+  .postcard:hover { transform: translateY(-5px); box-shadow: 0 30px 50px -34px rgba(46,37,31,.5); }
+  .postcard__media { aspect-ratio: 16/10; overflow: hidden; background: #000; }
+  .postcard__media img, .postcard__media video { width: 100%; height: 100%; object-fit: cover; }
+  .postcard__body { padding: 26px 28px 30px; }
+  .postcard__body h3 { font-family: var(--display); font-weight: 500; font-size: 26px; }
+  .postcard__body p { margin-top: 11px; color: var(--ink-dim); font-size: 16px; }
+  .thumbs { margin-top: 16px; display: flex; gap: 9px; }
+  .thumbs img { width: 58px; height: 58px; border-radius: 11px; object-fit: cover; }
+  .link { margin-top: 18px; display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--pink); font-size: 14.5px; }
+  .link::after { content: "→"; transition: transform .3s var(--ease); }
+  .postcard:hover .link::after { transform: translateX(4px); }
+  @media (max-width: 680px){ .postcards { grid-template-columns: 1fr; } }
+
+  /* ============ GALLERY (captioned, even) ============ */
+  .gal { background: var(--bg-2); padding: clamp(56px, 9vw, 100px) 0; }
+  .gal__head { text-align: center; margin-bottom: 40px; }
+  .gal__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .gal__grid figure { }
+  .gal__grid .ph { border-radius: 16px; overflow: hidden; aspect-ratio: 4/3; box-shadow: 0 26px 44px -34px rgba(46,37,31,.5); }
+  .gal__grid img { width: 100%; height: 100%; object-fit: cover; transition: transform 1s var(--ease); }
+  .gal__grid figure:hover img { transform: scale(1.05); }
+  .gal__grid figcaption { margin-top: 11px; font-size: 14px; color: var(--ink-dim); display: flex; align-items: center; gap: 7px; }
+  .gal__grid figcaption b { font-family: var(--display); font-weight: 500; color: var(--ink); font-size: 15px; }
+  @media (max-width: 760px){ .gal__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px){ .gal__grid { grid-template-columns: 1fr; } }
+
+  /* ============ BESÖK / VISIT ============ */
+  .visit { padding: clamp(56px, 9vw, 110px) 0; }
+  .visit__head { text-align: center; margin-bottom: 44px; }
+  .visit__grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(28px, 5vw, 56px); align-items: stretch; }
+  .infocols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 30px; align-content: start; }
+  .infocol h4 { font-family: var(--display); font-weight: 500; font-size: 19px; color: var(--pink); margin-bottom: 10px; }
+  .infocol p { font-size: 16px; color: var(--ink); }
+  .infocol p span { color: var(--ink-dim); }
+  .infocol--full { grid-column: span 2; }
+  .visit__btns { margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .mapwrap { border-radius: 20px; overflow: hidden; min-height: 340px; border: 1px solid var(--line); box-shadow: 0 40px 80px -50px rgba(46,37,31,.5); }
+  .mapwrap iframe { width: 100%; height: 100%; min-height: 340px; border: 0; display: block; filter: saturate(.92) contrast(.98); }
+  @media (max-width: 820px){ .visit__grid { grid-template-columns: 1fr; } .mapwrap { order: -1; } }
+  @media (max-width: 420px){ .infocols { grid-template-columns: 1fr; } .infocol--full { grid-column: span 1; } }
+
+  /* ============ FOOTER ============ */
+  footer { background: var(--ink); color: #efe2cd; }
+  footer .shell { padding-top: 54px; padding-bottom: 40px; text-align: center; }
+  footer img { height: 96px; width: auto; margin: 0 auto 22px; filter: drop-shadow(0 2px 18px rgba(0,0,0,.35)); }
+  .fsoc { display: flex; justify-content: center; gap: 22px; margin-bottom: 24px; }
+  .fsoc a { font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 12.5px; opacity: .85; }
+  .fsoc a:hover { opacity: 1; color: #fff; }
+  .fbot { font-size: 13px; opacity: .6; border-top: 1px solid rgba(255,255,255,.12); padding-top: 22px; }
+</style>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header class="site" id="siteHeader">
+    <div class="utility">
+      <div class="shell utility__in">
+        <span class="status" id="openPill"><span class="d"></span><span id="openText">Öppettider</span></span>
+        <div class="utility__r">
+          <a href="tel:+46607855700">060-785 57 00</a>
+          <span class="sep">·</span>
+          <span class="addr">Bankgatan 15, Sundsvall</span>
+        </div>
+      </div>
+    </div>
+    <div class="masthead">
+      <div class="shell masthead__in">
+        <nav class="mlinks mlinks--l">
+          <a href="#meny">Meny</a>
+          <a href="#om">Om oss</a>
+        </nav>
+        <a class="brand" href="#top" aria-label="Tant Anci &amp; Fröken Sara"><img src="/tantanci-preview/assets/logo.webp" alt="Tant Anci &amp; Fröken Sara" /></a>
+        <nav class="mlinks mlinks--r">
+          <a href="#tartor">Tårtor</a>
+          <a class="book" href="#besok">Hitta hit</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ HERO ============ -->
+  <section class="intro" id="top">
+    <div class="shell intro__grid">
+      <div class="intro__text up">
+        <span class="intro__kicker">
+          <svg class="sprig" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 22V8M12 8c0-3 2-5 6-5 0 4-3 6-6 6Zm0 4c0-3-2-5-6-5 0 4 3 6 6 6Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Ekologiskt café &amp; restaurang · Sundsvall
+        </span>
+        <h1>Hemlagat, ekologiskt och <em>gjort med kärlek.</em></h1>
+        <p class="intro__p">Ett prisbelönt, KRAV-certifierat kök mitt i Sundsvall. Allt lagat från grunden, mycket vegetariskt och alltid med glutenfria och laktosfria val.</p>
+        <div class="intro__btns">
+          <a class="btn btn--solid" href="tel:+46607855700">Ring &amp; boka bord</a>
+          <a class="btn btn--line" href="#meny">Se menyn</a>
+        </div>
+        <p class="intro__hours">
+          <svg class="sprig" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Mån–Fre 11–20 · Lör 12–18 · Sön stängt
+        </p>
+      </div>
+      <div class="intro__art up">
+        <svg class="leaf-top" viewBox="0 0 64 40" fill="none"><path d="M2 38C2 20 18 4 40 4c8 0 18 2 22 6-6 18-22 28-40 28-8 0-16-2-20-0Z" stroke="currentColor" stroke-width="2"/><path d="M10 34C22 24 36 14 56 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <figure class="frame"><img src="/tantanci-preview/assets/miljo.jpg" alt="Ljus och inbjudande matsal hos Tant Anci &amp; Fröken Sara" /></figure>
+        <figure class="polaroid"><img src="/tantanci-preview/assets/latte.jpg" alt="Latte med ett hjärta i mjölkskummet" /><figcaption>med kärlek</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VALUES ============ -->
+  <div class="values">
+    <div class="shell values__in">
+      <b>KRAV-certifierat</b>
+      <svg class="sprig" viewBox="0 0 24 24" fill="none"><path d="M12 20V9M12 9c0-3 2-5 5-5 0 3-2 5-5 5Zm0 3c0-2-2-4-5-4 0 3 2 4 5 4Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>100% ekologiskt</b>
+      <svg class="sprig" viewBox="0 0 24 24" fill="none"><path d="M12 20V9M12 9c0-3 2-5 5-5 0 3-2 5-5 5Zm0 3c0-2-2-4-5-4 0 3 2 4 5 4Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>Glutenfritt &amp; laktosfritt</b>
+      <svg class="sprig" viewBox="0 0 24 24" fill="none"><path d="M12 20V9M12 9c0-3 2-5 5-5 0 3-2 5-5 5Zm0 3c0-2-2-4-5-4 0 3 2 4 5 4Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>White Guide Café</b>
+    </div>
+  </div>
+
+  <!-- ============ OM OSS ============ -->
+  <section class="story" id="om">
+    <div class="shell">
+      <div class="story__in up">
+        <span class="eyebrow">Om oss</span>
+        <p class="story__lead">Ett café och en restaurang mitt i Sundsvall, där råvarorna är ekologiska, allt lagas från grunden och det <span class="hl">alltid finns något för alla</span>.</p>
+        <p class="story__p">KRAV-certifierat kök, säsongens råvaror och hembakat varje dag. Glutenfritt och laktosfritt på både mat och kaffe, mycket vegetariskt och veganskt. Vi finns med i White Guide Café.</p>
+        <p class="signature">Tant Anci &amp; Fröken Sara</p>
+      </div>
+      <div class="story__strip up">
+        <figure><img src="/tantanci-preview/assets/butik.jpg" alt="Ekologiskt sortiment i butiken" /></figure>
+        <figure><img src="/tantanci-preview/assets/flickorna.jpg" alt="Barn med ekologiskt godis" /></figure>
+        <figure><img src="/tantanci-preview/assets/interior-entre.jpg" alt="Skylten på Bankgatan" /></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MENY ============ -->
+  <section class="menu" id="meny">
+    <div class="shell">
+      <div class="menu__head up">
+        <span class="eyebrow">Menyn</span>
+        <h2 class="title">Lunch, kväll &amp; <em>fika</em></h2>
+        <p>Ett smakprov ur menyn. Stora sallader, varma rätter och hembakat, allt ekologiskt och lagat för hand. Fråga oss gärna om dagens.</p>
+      </div>
+
+      <div class="menucard up">
+        <div class="menucol">
+          <div class="mcat">
+            <div class="mcat__h"><h3>Sallader</h3><span class="tag">på quinoa / bulgur</span></div>
+            <div class="mrow"><span class="nm">Halloumi &amp; säsongens grönt</span><span class="ld"></span><span class="pr">155 kr</span></div>
+            <div class="mrow"><span class="nm">Getost, valnöt &amp; honung</span><span class="ld"></span><span class="pr">159 kr</span></div>
+            <div class="mrow"><span class="nm">Räkor, ägg &amp; avokado</span><span class="ld"></span><span class="pr">169 kr</span></div>
+          </div>
+          <div class="mcat">
+            <div class="mcat__h"><h3>Pasta</h3><span class="tag">tortellini</span></div>
+            <div class="mrow"><span class="nm">Fyra ostar</span><span class="ld"></span><span class="pr">125 kr</span></div>
+            <div class="mrow"><span class="nm">Ricotta &amp; spenat</span><span class="ld"></span><span class="pr">125 kr</span></div>
+            <div class="mrow"><span class="nm">Vegansk soja</span><span class="ld"></span><span class="pr">125 kr</span></div>
+          </div>
+          <div class="mcat">
+            <div class="mcat__h"><h3>Soppa &amp; Barn</h3></div>
+            <div class="mrow"><span class="nm">Dagens soppa <small>med bröd</small></span><span class="ld"></span><span class="pr">109 kr</span></div>
+            <div class="mrow"><span class="nm">Barnens tallrik <small>pannkakor el. tortellini</small></span><span class="ld"></span><span class="pr">55 kr</span></div>
+          </div>
+        </div>
+
+        <div class="menucol">
+          <div class="mcat">
+            <div class="mcat__h"><h3>Mackor &amp; Wraps</h3><span class="tag">surdeg</span></div>
+            <div class="mrow"><span class="nm">Varm halloumimacka</span><span class="ld"></span><span class="pr">109 kr</span></div>
+            <div class="mrow"><span class="nm">Räkmacka</span><span class="ld"></span><span class="pr">109 kr</span></div>
+            <div class="mrow"><span class="nm">Wrap <small>kyckling, halloumi el. vegansk</small></span><span class="ld"></span><span class="pr">109 kr</span></div>
+            <div class="mrow"><span class="nm">Kall ostmacka</span><span class="ld"></span><span class="pr">från 45 kr</span></div>
+          </div>
+          <div class="mcat">
+            <div class="mcat__h"><h3>Kvällsmeny</h3><span class="tag">från 17.00</span></div>
+            <div class="mrow"><span class="nm">Fröken Saras burgare</span><span class="ld"></span><span class="pr">189 kr</span></div>
+            <div class="mrow"><span class="nm">Vegansk burgare</span><span class="ld"></span><span class="pr">179 kr</span></div>
+            <div class="mrow"><span class="nm">Medelhavstallrik</span><span class="ld"></span><span class="pr">169 kr</span></div>
+            <div class="mrow"><span class="nm">Lyxig räkmacka</span><span class="ld"></span><span class="pr">219 kr</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu__note up">
+        <span class="pill">Köket stänger 30 min före stängning</span>
+        <span>Priser är ungefärliga och uppdateras enkelt här på sidan.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BUBBLE TEA ============ -->
+  <section class="boba">
+    <div class="shell">
+      <div class="boba__band up">
+        <div>
+          <h3>Bubble Tea &amp; Cream Cheese Foam</h3>
+          <p>Svart Ceylon eller grönt jasmin som bas, din smak på toppen. Välj bubblor av tapioka, popping eller konjac.</p>
+          <div class="boba__tags"><span>Karamell</span><span>Chai</span><span>Choklad</span><span>Vanilj</span><span>Mynta</span><span>Citron</span><span>Persika</span></div>
+        </div>
+        <div class="boba__price">
+          <span class="big">59–69 kr</span>
+          <span class="small">Alltid ekologiskt te</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TÅRTOR & CATERING ============ -->
+  <section class="cards" id="tartor">
+    <div class="shell">
+      <div class="cards__head up">
+        <span class="eyebrow">Beställ i förväg</span>
+        <h2 class="title">Tårtor &amp; <em>catering</em></h2>
+      </div>
+      <div class="postcards">
+        <article class="postcard up">
+          <div class="postcard__media"><video src="/tantanci-preview/assets/gluten-free-tiramasu.mp4" autoplay muted loop playsinline></video></div>
+          <div class="postcard__body">
+            <h3>Beställningstårtor</h3>
+            <p>Ekologiska tårtor till dagen som ska firas, även veganska och raw. Beställ minst en vecka i förväg.</p>
+            <div class="thumbs">
+              <img src="/tantanci-preview/assets/saffran-honey-cheesecake.jpg" alt="Saffrans- och honungscheesecake" />
+              <img src="/tantanci-preview/assets/blueberry-marble-cheesecake.jpg" alt="Blåbärsmarmorerad cheesecake" />
+              <img src="/tantanci-preview/assets/moca-magnum-minicake.jpg" alt="Mocca-minitårtor" />
+            </div>
+            <a class="link" href="tel:+46607855700">Ring och beställ</a>
+          </div>
+        </article>
+        <article class="postcard up">
+          <div class="postcard__media"><img src="/tantanci-preview/assets/catering.jpg" alt="Catering från Tant Anci &amp; Fröken Sara" /></div>
+          <div class="postcard__body">
+            <h3>Catering</h3>
+            <p>Buffé, fika och våra rätter till kontoret, föreläsningen eller festen. Fri leverans inom Sundsvall City vid 10 portioner eller fler.</p>
+            <a class="link" href="mailto:info@tantanci.se">Skicka en förfrågan</a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GALLERI ============ -->
+  <section class="gal">
+    <div class="shell">
+      <div class="gal__head up">
+        <span class="eyebrow">Galleri</span>
+        <h2 class="title">Lite av stämningen</h2>
+      </div>
+      <div class="gal__grid up">
+        <figure><div class="ph"><img src="/tantanci-preview/assets/macka.jpg" alt="Räkmacka vid fönstret" /></div><figcaption><b>Dagens macka</b> · ekologiskt &amp; nybakat</figcaption></figure>
+        <figure><div class="ph"><img src="/tantanci-preview/assets/sallad.jpg" alt="Ekologisk sallad med pesto" /></div><figcaption><b>Säsongens sallad</b> · grönt på riktigt</figcaption></figure>
+        <figure><div class="ph"><img src="/tantanci-preview/assets/latte.jpg" alt="Latte med hjärta" /></div><figcaption><b>Ekologiskt kaffe</b> · serverat med kärlek</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BESÖK OSS ============ -->
+  <section class="visit" id="besok">
+    <div class="shell">
+      <div class="visit__head up">
+        <span class="eyebrow">Hitta hit</span>
+        <h2 class="title">Välkommen in</h2>
+      </div>
+      <div class="visit__grid">
+        <div class="infocols up">
+          <div class="infocol">
+            <h4>Adress</h4>
+            <p>Bankgatan 15<br /><span>852 31 Sundsvall</span></p>
+          </div>
+          <div class="infocol">
+            <h4>Kontakt</h4>
+            <p>060-785 57 00<br /><span>info@tantanci.se</span></p>
+          </div>
+          <div class="infocol infocol--full">
+            <h4>Öppettider</h4>
+            <p>Mån–Fre 11–20 &nbsp;·&nbsp; Lör 12–18 &nbsp;·&nbsp; Sön stängt<br /><span>Köket stänger 30 minuter före stängning.</span></p>
+          </div>
+          <div class="infocol infocol--full">
+            <div class="visit__btns">
+              <a class="btn btn--solid" href="tel:+46607855700">Ring &amp; boka bord</a>
+              <a class="btn btn--line" href="https://maps.google.com/?q=Tant+Anci+%26+Fr%C3%B6ken+Sara+Bankgatan+15+Sundsvall" target="_blank" rel="noopener">Vägbeskrivning</a>
+            </div>
+          </div>
+        </div>
+        <div class="mapwrap up">
+          <iframe title="Karta till Tant Anci &amp; Fröken Sara" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=Bankgatan%2015,%20852%2031%20Sundsvall&z=16&output=embed"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="shell">
+      <img src="/tantanci-preview/assets/logo.webp" alt="Tant Anci &amp; Fröken Sara" />
+      <div class="fsoc">
+        <a href="https://www.instagram.com/tantanci.frokensara/" target="_blank" rel="noopener">Instagram</a>
+        <a href="https://www.facebook.com/tantancifrokensara/" target="_blank" rel="noopener">Facebook</a>
+        <a href="mailto:info@tantanci.se">Mejl</a>
+      </div>
+      <div class="fbot">Ekologiskt café &amp; restaurang · Bankgatan 15, Sundsvall · © 2026 Tant Anci &amp; Fröken Sara</div>
+    </div>
+  </footer>
+
+<script>
+  /* sticky header shrink */
+  const header = document.getElementById('siteHeader');
+  const onScroll = () => header.classList.toggle('shrink', window.scrollY > 30);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* gentle reveal */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.up').forEach(el => io.observe(el));
+
+  /* live open-now indicator — Mon–Fri 11–20, Sat 12–18, Sun closed */
+  (function () {
+    const pill = document.getElementById('openPill');
+    const text = document.getElementById('openText');
+    if (!pill || !text) return;
+    const hours = { 1:[11,20], 2:[11,20], 3:[11,20], 4:[11,20], 5:[11,20], 6:[12,18], 0:null };
+    const names = ['söndag','måndag','tisdag','onsdag','torsdag','fredag','lördag'];
+    const now = new Date();
+    const day = now.getDay();
+    const h = now.getHours() + now.getMinutes() / 60;
+    const today = hours[day];
+    let open = false, msg = '';
+    if (today && h >= today[0] && h < today[1]) { open = true; msg = `Öppet nu · stänger ${today[1]}:00`; }
+    else if (today && h < today[0]) { msg = `Öppnar idag ${today[0]}:00`; }
+    else {
+      for (let i = 1; i <= 7; i++) {
+        const d = (day + i) % 7;
+        if (hours[d]) { const label = i === 1 ? 'imorgon' : names[d]; msg = `Stängt nu · öppnar ${label} ${hours[d][0]}:00`; break; }
+      }
+    }
+    pill.classList.toggle('closed', !open);
+    text.textContent = msg;
+  })();
+</script>
+</body>
+</html>
