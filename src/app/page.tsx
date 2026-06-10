@@ -63,7 +63,7 @@ export default async function Home() {
                 <span className="text-accent">Rider</span> McCallum
               </h1>
               <p className="max-w-xl text-base leading-7 text-muted sm:text-lg sm:leading-8">
-                Sharing things I learn and build.
+                Things I learn and build.
               </p>
               <span className="w-fit font-mono text-xs text-accent sm:text-muted transition-colors sm:group-hover:text-accent">
                 <span className="inline-flex items-center gap-0">
