@@ -93,7 +93,7 @@ export default async function Home() {
             </div>
             <div style={{ color: "#a1a1aa" }}>
               hockey player<br />
-              and website builder.<span className="caret" aria-hidden />
+              exploring technology.<span className="caret" aria-hidden />
             </div>
           </div>
         </section>
