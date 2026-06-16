@@ -132,15 +132,11 @@ export default async function Home() {
             <div className="absolute inset-0 bg-linegrid opacity-[0.25] [mask-image:radial-gradient(70%_70%_at_85%_15%,black,transparent)]" />
             <div className="relative flex items-start justify-between gap-3">
               <div className="flex flex-col gap-0.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                  featured
-                </span>
                 <h2 className="text-2xl font-bold tracking-tight font-heading">
                   {pinnedTool.title}
                 </h2>
               </div>
-              <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
-                <span className="status-dot" aria-hidden />
+              <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-accent/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
                 {pinnedTool.status ?? "Live"}
               </span>
             </div>
