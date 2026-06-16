@@ -55,7 +55,6 @@ export default async function Home() {
           </div>
           <div className="relative flex h-full flex-col justify-between gap-6">
             <div className="flex items-center gap-2 font-mono text-xs text-muted">
-              <span className="status-dot" aria-hidden />
               <span>online · v0.2</span>
             </div>
             <div className="flex flex-col gap-3">

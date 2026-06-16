@@ -50,7 +50,6 @@ export function SiteNav() {
           className={`flex items-center gap-1.5 rounded-full px-1.5 py-1 transition-opacity hover:opacity-80 ${isActive("/") ? "opacity-100" : "opacity-60"}`}
         >
           <LogoMark className="h-5 w-auto" />
-          <span className="status-dot" aria-hidden />
         </Link>
         <ul className="flex items-center gap-0.5 font-mono text-xs text-muted sm:text-[13px]">
           {links.slice(1).map((l) => (
