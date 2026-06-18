@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Served under /offseason on ridermccallum.com; base makes the relative asset/data paths resolve there. -->
+<base href="/offseason/">
+<title>Training</title>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+
+<div class="container">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Training</h1>
+      <span class="who" id="who-name"></span>
+    </div>
+    <div class="meta-strip" id="meta-strip"></div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-view="today" class="active">Home</button>
+    <button data-view="schedule">Schedule</button>
+    <button data-view="plan">Plan</button>
+    <button data-view="week">Week</button>
+    <button data-view="all">All Workouts</button>
+    <button data-view="programs">Programs</button>
+    <button data-view="mobility">Mobility</button>
+    <button data-view="insights">Insights</button>
+  </nav>
+
+  <!-- HOME VIEW -->
+  <section id="view-today" class="view active">
+    <div id="today-content"></div>
+  </section>
+
+  <!-- PLAN VIEW (macrocycle + lift mesocycle) -->
+  <section id="view-plan" class="view">
+    <div class="view-head">
+      <h2>Training Plan</h2>
+      <div class="controls"><span id="plan-meta" style="font-size:12px;color:var(--text-2);"></span></div>
+    </div>
+    <div id="plan-content"></div>
+  </section>
+
+  <!-- WEEK VIEW -->
+  <section id="view-week" class="view">
+    <div class="view-head">
+      <div class="week-nav">
+        <button class="btn icon" id="week-prev" aria-label="Previous week">‹</button>
+        <span class="week-label" id="week-label"></span>
+        <button class="btn icon" id="week-next" aria-label="Next week">›</button>
+        <button class="btn" id="week-today" style="margin-left: 10px;">Today</button>
+      </div>
+      <div class="controls" id="week-summary"></div>
+    </div>
+    <div class="week-grid" id="week-grid"></div>
+  </section>
+
+  <!-- SCHEDULE VIEW -->
+  <section id="view-schedule" class="view">
+    <div class="view-head">
+      <h2>Off-Season Schedule</h2>
+      <div class="controls" id="sched-meta"></div>
+    </div>
+    <div id="schedule-content"></div>
+  </section>
+
+  <!-- ALL VIEW -->
+  <section id="view-all" class="view">
+    <div class="view-head">
+      <h2>All Workouts</h2>
+      <div class="controls">
+        <input type="search" id="search-all" placeholder="Search title or notes..." style="width: 240px;">
+      </div>
+    </div>
+    <div class="filter-chips" id="filter-chips"></div>
+    <div id="all-list"></div>
+  </section>
+
+  <!-- PROGRAMS VIEW -->
+  <section id="view-programs" class="view">
+    <div class="view-head">
+      <h2>Programs</h2>
+    </div>
+    <div class="sub-tabs" id="program-sub-tabs">
+      <button class="sub-tab active" data-prog="lifts">Lifts</button>
+      <button class="sub-tab" data-prog="plyo">Plyo / Speed</button>
+      <button class="sub-tab" data-prog="conditioning">Conditioning</button>
+    </div>
+    <div id="programs-content"></div>
+  </section>
+
+  <!-- MOBILITY VIEW -->
+  <section id="view-mobility" class="view">
+    <div class="view-head">
+      <h2>Mobility Library</h2>
+    </div>
+    <div id="mobility-content"></div>
+  </section>
+
+  <!-- INSIGHTS VIEW -->
+  <section id="view-insights" class="view">
+    <div class="view-head">
+      <h2>Insights</h2>
+      <div class="controls"><span style="font-size:11px;color:var(--text-3);">Last 4 weeks</span></div>
+    </div>
+    <div id="insights-content"></div>
+  </section>
+
+  <footer class="foot">
+    <div class="hint" id="updated-hint"></div>
+    <div class="actions">
+      <button class="btn" id="btn-show-data">View raw data</button>
+    </div>
+  </footer>
+</div>
+
+<div class="modal-back" id="modal-back">
+  <div class="modal" id="modal-body"></div>
+</div>
+
+<!-- Data (file-driven; Claude edits these) -->
+<script src="data/meta.js"></script>
+<script src="data/programs.js"></script>
+<script src="data/schedule.js"></script>
+<script src="data/lift-program.js"></script>
+<script src="data/goals.js"></script>
+<script src="data/daily/2026-05.js"></script>
+<script src="data/daily/2026-06.js"></script>
+
+<!-- App (loaded in dependency order; classic scripts share global scope) -->
+<script src="assets/js/data.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/router.js"></script>
+<script src="assets/js/modals.js"></script>
+<script src="assets/js/views/home.js"></script>
+<script src="assets/js/views/week.js"></script>
+<script src="assets/js/views/all.js"></script>
+<script src="assets/js/views/programs.js"></script>
+<script src="assets/js/views/mobility.js"></script>
+<script src="assets/js/views/insights.js"></script>
+<script src="assets/js/views/schedule.js"></script>
+<script src="assets/js/views/plan.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

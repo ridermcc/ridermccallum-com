@@ -233,6 +233,17 @@ export default async function Home() {
           <ul className="flex flex-col gap-1 font-mono text-sm">
             <li>
               <a
+                href="/offseason"
+                className="group flex items-center justify-between gap-2 rounded-md px-2 py-1.5 -mx-2 transition-colors hover:bg-accent/10"
+              >
+                <span>offseason</span>
+                <span className="text-muted transition-colors group-hover:text-accent">
+                  dashboard &rarr;
+                </span>
+              </a>
+            </li>
+            <li>
+              <a
                 href="https://github.com/ridermcc"
                 target="_blank"
                 rel="noopener noreferrer"
