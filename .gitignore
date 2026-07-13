@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local session notes, not site content
+/handoffs/
+
+# Large videos not referenced by any live post (kept local; re-import as needed)
+/public/notes/grad-2026/adventures/img_8715.mp4
+/public/notes/grad-2026/adventures/img_87111.mp4
+/public/notes/grad-2026/adventures/img_8718.mp4
+/public/notes/grad-2026/fish/img_9444.mp4
+/public/notes/grad-2026/wlaking-stage.mp4

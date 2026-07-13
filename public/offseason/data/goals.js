@@ -15,7 +15,7 @@ window.GOALS = {
     {
       id: "weight", label: "Bodyweight",
       baseline: 169.5, baselineDate: "2026-05-18",
-      current: 173.7, currentDate: "2026-06-16",
+      current: 175.3, currentDate: "2026-06-22",
       target: 182, unit: "lb", direction: "up",
       history: [
         { date: "2026-04-01", weight: 166.9 },
@@ -35,9 +35,11 @@ window.GOALS = {
         { date: "2026-05-04", weight: 168.8 },
         { date: "2026-05-18", weight: 169.5 },
         { date: "2026-06-02", weight: 171.2 },
-        { date: "2026-06-16", weight: 173.7 }
+        { date: "2026-06-16", weight: 173.7 },
+        { date: "2026-06-18", weight: 172.6 },
+        { date: "2026-06-22", weight: 175.3 }
       ],
-      note: "Lean mass gain over the offseason. +4.2 lb from the May 18 baseline (169.5 → 173.7 by Jun 16). Pre-offseason weigh-ins kept for trend context."
+      note: "Lean mass gain over the offseason. +5.8 lb from the May 18 baseline (169.5 → 175.3 by Jun 22). Pre-offseason weigh-ins kept for trend context."
     },
     {
       id: "bodyfat", label: "Body fat",

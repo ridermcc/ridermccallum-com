@@ -262,5 +262,42 @@ window.DAILY_2026_06 = {
     ],
     meals: [],
     notes: "Thursday — Norwegian 4x4 VO2max intervals on the bike (40 min, Zone 4 into Zone 5) + 2 hr skate + 15 min pool mobility. Weigh-in 172.6 lb (-1.1 from Jun 16's 173.7). DEVIATION FROM PLAN: today was scheduled as an EASY plyo (elasticity/fascia, no hard sprints) + mobility; instead Rider ran a hard interval session plus a 2 hr skate. That's a high-CNS / high-aerobic day stacked on Wed's lift+skate — watch fatigue heading into Fri's D3 Lower."
+  },
+
+  "2026-06-19": {
+    checklist: { lift: true, plyo: false, conditioning: false, mobility: false, skating: false, skillWork: false, creatine: null, hydrationL: null, sleepHours: null, sleepQuality: null, bodyweight: null, nutritionQuality: null },
+    body: { soreness: {}, injuries: [], energyLevel: null },
+    workouts: [
+      { id: "w_20260619_1", time: "", type: "off-ice", title: "Lift: Lower Body", templateId: "mhockey-os-d3", duration: 65, rpe: null, location: "home", notes: "Completed (Week 5 Build, D3 Lower) — done at home with lighter weight, higher-rep substitutes for the prescribed barbell movements. 65 min. Loads/reps not captured.", exercises: [] }
+    ],
+    meals: [],
+    notes: "Friday — D3 Lower lift done at home (lighter weight, higher-rep substitutes), 65 min. No skate or mobility reported."
+  },
+
+  "2026-06-20": {
+    checklist: { lift: false, plyo: false, conditioning: false, mobility: false, skating: false, skillWork: false, creatine: null, hydrationL: null, sleepHours: null, sleepQuality: null, bodyweight: null, nutritionQuality: null },
+    body: { soreness: {}, injuries: [], energyLevel: null },
+    workouts: [],
+    meals: [],
+    notes: "Saturday — full rest, no exercise."
+  },
+
+  "2026-06-21": {
+    checklist: { lift: false, plyo: false, conditioning: false, mobility: false, skating: false, skillWork: false, creatine: null, hydrationL: null, sleepHours: null, sleepQuality: null, bodyweight: null, nutritionQuality: null },
+    body: { soreness: {}, injuries: [], energyLevel: null },
+    workouts: [],
+    meals: [],
+    notes: "Sunday — full rest, no exercise. Closes out Week 5 (final week of Phase 1, Aerobic Engine)."
+  },
+
+  "2026-06-22": {
+    checklist: { lift: true, plyo: false, conditioning: false, mobility: false, skating: true, skillWork: false, creatine: null, hydrationL: null, sleepHours: null, sleepQuality: null, bodyweight: 175.3, nutritionQuality: null },
+    body: { soreness: {}, injuries: [], energyLevel: null },
+    workouts: [
+      { id: "w_20260622_1", time: "", type: "off-ice", title: "Lift: Full Body", templateId: "mhockey-os-d1", duration: 55, rpe: null, location: "", notes: "Completed (Week 6 Overreach / lift-plan Wk8, D1 Full Body — highest-volume week). 55 min. Loads/reps not captured.", exercises: [] },
+      { id: "w_20260622_2", time: "", type: "on-ice", title: "Skate (Sundsvall)", templateId: null, duration: 80, rpe: null, location: "Sundsvall", notes: "Completed. 1 hr 20 min on-ice.", exercises: [] }
+    ],
+    meals: [],
+    notes: "Monday — first day of Week 6 (Peak Accumulation / Overreach, lift-plan Wk8). D1 Full Body lift (55 min) → 1 hr 20 min skate, per plan (lift before skate). Mobility NOT done (planned). Weigh-in 175.3 lb — new high, +2.7 from Jun 18's 172.6 and +5.8 from the May 18 baseline (169.5). Overreach week: expect on-ice pop to dip late-week as fatigue accumulates — that's normal, it masks fitness."
   }
 };

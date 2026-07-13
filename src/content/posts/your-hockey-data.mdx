@@ -1,0 +1,125 @@
+export const metadata = {
+  title: "Scraping & LLM Chaining behind hky.bio Signup Flow",
+  summary:
+    "Gathering scattered hockey data for the user.",
+  date: "2026-06-09",
+  tags: ["hky-bio"],
+};
+
+Your hockey career is scattered across a dozen sites that don't talk to each other. Stats on EP, highlights on YouTube, features in local news, a headshot on a roster page, the rest on Instagram. All public, all findable by anyone with a browser, and none of it in one place.
+
+I built a system that fixes that from almost nothing: a name and a date of birth. It searches, reads the messy public data, decides what is actually about that player, and assembles one page while they watch. This note walks through how it works, how it scores candidates, how I test it, what it costs, and where I think it goes next.
+
+## The pipeline
+
+A name and a date of birth are the whole input. Everything else is discovered. The run composes small, independently testable modules, wrapped by an [Inngest](https://www.inngest.com/) worker for retries and idempotency. The stages:
+
+**Discover.** A search provider turns the name into candidate URLs. [Serper](https://serper.dev/) is the default, Brave a one-env-var rollback. Both sit behind a circuit breaker: three failures in a row and calls fail fast for an hour instead of hammering a provider that is already down.
+
+**Parse.** An Elite Prospects page is built for browsers, not machines. The parser pulls structured fields (team history, position, nationality, stats by season) from messy HTML and embedded JSON-LD. Reading unstructured text into clean structure is the one thing LLMs are genuinely reliable at.
+
+**Match.** The dangerous step. Picking the wrong EP profile writes a stranger's career onto your page. A judge decides which candidate, if any, is you, and how sure it is. Scoring below.
+
+**Collapse.** A typical EP profile has ten or more season rows: U16, U18, J20, senior, affiliate stints, call-ups. Most of it is noise on a profile. The collapse step groups rows into career chapters. Three seasons in one club's youth system become one line, a two-game call-up elsewhere gets dropped. The output reads like a timeline, not a spreadsheet.
+
+**Enrich.** The same search-and-judge pattern runs for YouTube, news, and Instagram, each with its own rules. Highlights, channels, articles, and a verified handle get attached.
+
+**Consolidate.** Everything lands on one page, and every section links back to where it came from.
+
+## How candidates get scored
+
+Nothing gets attached on a name match alone. Same-name doppelgangers are the failure mode I design hardest against, and each source weighs evidence differently.
+
+**Elite Prospects** runs on a confidence tier that decides what happens to the candidate:
+
+- `high` applies automatically.
+- `medium` is shown to you in the signup walkthrough to confirm or reject.
+- `low` is dropped.
+
+The signals that move the tier: a single-candidate hit (if search returns exactly one EP profile for the name, that is strong on its own), an exact date-of-birth match, and a fuzzy name match that tolerates transliteration, accents, hyphenation, middle names, and Jr/Sr. One rule sits outside the model: if a name is within edit distance three and the birth date matches exactly, it never drops below `medium`. A deterministic check guards the most expensive mistake.
+
+**YouTube** is rule-based, not a model call. A channel goes `high` (auto-link) only if it is an auto-generated Topic channel or its description contains your team name or birth year. Everything else is `low`, surfaced as a suggestion and capped at three.
+
+**Instagram** is search plus scrape plus judge. The finder runs `"<name>" hockey site:instagram.com`, scrapes the candidates, and a judge reads each bio. A bio that names your team or a team from your EP history is a strong yes. A different sport, profession, or geography is a confident no. Name similarity alone is never enough.
+
+**News** is a batch. Obvious stat pages and social handle pages are filtered out first as a cost gate. What survives goes to one judge call that disambiguates every article at once against your parsed team history, then a liveness check drops dead links and a dedupe step drops Facebook cross-posts of the same Instagram content.
+
+One rule shows up in every source: when unsure, reject loudly rather than guess. A wrong attachment on a public profile is worse than a missing one.
+
+## The reasoning prompts
+
+The rules above live in the system prompts, written like instructions to a careful assistant. Two condensed examples (em-dashes removed, trimmed):
+
+The Elite Prospects matcher:
+
+```text
+You are matching a player's signup info (name plus optional DOB) against
+EliteProspects profiles. The wrong match writes someone else's career onto
+a stranger's public profile, so be cautious.
+
+A single candidate returned from search is a strong signal: it means the
+search found exactly one EP profile for this name. Treat that as almost
+certainly the right player unless the DOB actively contradicts. Even then,
+surface it as "medium" so the user can confirm or reject in the walkthrough.
+
+Treat name match fuzzily: transliteration, accents, hyphenation, middle
+names, Jr/Sr. Only use "low" when no name matches, or when every candidate
+in a multi-candidate set has a conflicting DOB.
+```
+
+The news disambiguator:
+
+```text
+You are deciding which articles in a batch are about a specific hockey
+player. Same-name disambiguation is the central concern.
+
+If an article describes the player on a team that appears nowhere in their
+team_history (and does not match the signup team), it is about a different
+person with the same name. Return is_about_this_player=false.
+
+Old articles are NOT automatically rejected. Career profiles want junior
+awards, college commitments, and historical milestones. Judge each article
+on whether the team and league align with team_history, regardless of date.
+```
+
+### How it responds, and what gets stored
+
+The judges never reply in prose. Each call demands structured output against a strict schema: a `confidence` tier, an index or boolean for the pick, and a one-sentence `reason`. A free-text "probably him" is not valid. The schema is the contract, and a response that doesn't fit is rejected.
+
+Where the response lands depends on the tier, and nothing destructive happens on the model's say-so:
+
+- `low` writes nothing.
+- `medium` writes a single candidate row and stops. The page is untouched until you confirm it in the walkthrough.
+- `high` applies: it writes the child rows (journey, stats, social links) and fills player fields like position and birth year, but only into blanks. A value you already set is never overwritten.
+
+Every applied row is stamped with the run that wrote it, so rejecting a candidate later pulls its exact rows back out cleanly. The `reason` rides along on each one, so a wrong call explains itself in the row.
+
+## Keeping it accurate
+
+The judges are the brain; the harness around them is what makes it trustworthy. Every module takes its model call and data layer as injected dependencies, so the logic tests with fakes and no network. Over fifty test files, most encoding a specific past mistake as a fixture: the two-game call-up that should be dropped, the doppelganger article that must not attach, the stale EP social link that should be ignored. End-to-end tests run real signups through a browser.
+
+One file guards against regressions I have already paid for once: blocked metadata endpoints, no error details leaking to clients, no auth check quietly removed from a route that exists to stop LLM cost abuse. Change what it asserts and you change the test in the same commit, on purpose.
+
+## What it costs to run
+
+The whole pipeline runs on Gemini 2.5 Flash, cheap enough to spend per player without thinking about it. Cost control is structural, not a spend alarm after the fact:
+
+- The Apify scrape budget is a hard per-run cap (ten calls); any stage that hits it fails open with an empty result instead of looping.
+- The news judge estimates batch cost up front and truncates the article list before the call.
+- Every stage emits an event to an append-only log, including `cost.cap_hit` when a guard trips, so a run stays traceable.
+
+Add it up and a run costs roughly five cents per player. About six Flash calls (EP match, the chapter collapse, the YouTube and news judges, the Instagram classifier and profile judge) land near three cents at Flash's token prices. The searches add well under a cent, the capped Instagram scrapes a cent or two. That is an estimate from per-run call and token counts, not a billed invoice, but the shape is clear: a nickel-per-player problem, not a dollar one.
+
+## Where this goes
+
+Right now the intelligence runs once, at signup, and then the page is yours to edit. The more interesting version is continuous.
+
+Picture the profile wired to a standing reasoning layer instead of a one-time script. It watches your sources. A new game posts to Elite Prospects and your stats update themselves. A local paper writes you up and the article appears, headlined and sourced, waiting for your nod. A highlight goes online and threads into the right season. You tell it, in plain language, to feature the playoff run and quiet the midseason slump, and the page rearranges.
+
+That is the real shift. Your presence as a player stops being a dozen accounts you half-maintain and becomes one surface, managed by something that understands hockey, answers to you, and keeps itself current. The scattered-data problem was never really a search problem. It is a coordination problem, and coordination is what a reasoning layer is for.
+
+## Where I'm at
+
+The pipeline works today on [hky.bio](https://hky.bio). A player types their name, confirms a date of birth, and watches the profile build. It is not finished: the EP parser still meets edge cases, the news judge runs a touch conservative, the YouTube finder misses channels that don't use a full name.
+
+But the approach holds, the cost is pennies, and the goal hasn't moved. One link, one page, everything about your hockey career in one place, and eventually, keeping itself that way.
