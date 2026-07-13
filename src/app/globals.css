@@ -241,9 +241,11 @@ img {
 }
 .blog-post a {
   color: var(--foreground);
+  text-decoration: underline;
   text-decoration-color: var(--ice-rest);
   text-decoration-thickness: 0.28ex;
   text-underline-offset: 0.28ex;
+  transition: text-decoration-color 120ms ease;
 }
 .blog-post a:hover {
   text-decoration-color: var(--ice-hover);
