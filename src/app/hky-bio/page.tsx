@@ -41,7 +41,7 @@ export default function HkyBioPage() {
             Johnny Ramoundos
           </a>
           , to name a few). If you&apos;re a
-          player interested in being a part of the a platform actually built for players, email me at <EmailCopy email="rider@hky.bio" />.
+          player interested in having a voice in the platform actually built for players, email me at <EmailCopy email="rider@hky.bio" />.
         </p>
       </div>
 
