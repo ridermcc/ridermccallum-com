@@ -32,6 +32,33 @@ export type ReconcileItem = {
   asks: string;
 };
 
+export type Income = {
+  contractValueJPY: number;
+  monthlySalaryJPY: number;
+  /** Month 1 was a partial month, so it is held separately from the standing salary. */
+  firstMonthSalaryJPY: number;
+  additionalIncomeJPY: number;
+  taxRate: number;
+  salaryDayOfMonth: number;
+  salaryMonths: number;
+  firstSalaryDate: string;
+};
+
+export type Obligations = {
+  studentLoanMonthlyJPY: number;
+  studentLoanMonths: number;
+  studentLoanFirstSalaryMonthIndex: number;
+  studentLoanFirstDate: string;
+  /** Face value of the agent fee. */
+  agentFeeJPY: number;
+  /** What actually leaves the bank. Zero when the fee was settled in kind. */
+  agentFeeCashJPY: number;
+  agentFeeSettlement: "cash" | "in-kind";
+  agentFeeNote?: string;
+  lawyerFeeJPY: number;
+  lawyerFeeNote?: string;
+};
+
 export type Budget = {
   version: number;
   updated: string;
@@ -46,14 +73,9 @@ export type Budget = {
   categories: Category[];
   groups: Group[];
   monthlyLivingBudget: number;
-  income: {
-    monthlySalaryJPY: number;
-    taxRate: number;
-    salaryDayOfMonth: number;
-    schedule: ScheduleRow[];
-  };
-  obligations: Record<string, number>;
-  openingBalance: { planStartJPY: number; inputsStartingBalanceCAD: number; note: string };
+  income: Income;
+  obligations: Obligations;
+  openingBalance: { planStartJPY: number; confirmedOn?: string; note: string };
   balanceAnchor: { date: string; amountJPY: number } | null;
   reconcile: ReconcileItem[];
 };
@@ -230,13 +252,223 @@ export function availableMonths(ledger: Ledger, today = todayISO()): string[] {
   return [...keys].sort().reverse();
 }
 
-/** Plan balance line from the sheet, with actual overlaid once a balance anchor exists. */
-export function balanceSeries(ledger: Ledger) {
-  const { budget } = ledger;
-  return budget.income.schedule.map((row) => ({
+/** Plan balance line, derived from the budget inputs. */
+export function balanceSeries(budget: Budget) {
+  return computeSchedule(budget).map((row) => ({
     date: row.date,
     label: new Date(row.date).toLocaleDateString("en-US", { month: "short" }),
     plan: row.planBalance,
     net: row.net,
   }));
+}
+
+// ---------- the plan: income, tax, obligations, what is left to save ----------
+
+/**
+ * The salary schedule is derived, not stored. Every number on the plan comes
+ * from the inputs in `budget.json`, so changing a figure in the admin moves the
+ * whole projection instead of leaving a stale table behind.
+ */
+export function computeSchedule(budget: Budget): ScheduleRow[] {
+  const { income, obligations, openingBalance, monthlyLivingBudget } = budget;
+  const [y0, m0, d0] = income.firstSalaryDate.split("-").map(Number);
+
+  let balance = openingBalance.planStartJPY;
+  let loanPaymentsMade = 0;
+
+  return Array.from({ length: income.salaryMonths }, (_, i) => {
+    const d = new Date(y0, m0 - 1 + i, d0);
+    const p = (n: number) => String(n).padStart(2, "0");
+    const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+
+    const salaryMonth = i + 1;
+    const salary = i === 0 ? income.firstMonthSalaryJPY : income.monthlySalaryJPY;
+    const additional = i === 0 ? income.additionalIncomeJPY : 0;
+    const tax = Math.round(salary * income.taxRate);
+
+    const loanDue =
+      salaryMonth >= obligations.studentLoanFirstSalaryMonthIndex &&
+      loanPaymentsMade < obligations.studentLoanMonths;
+    if (loanDue) loanPaymentsMade += 1;
+    const studentLoan = loanDue ? obligations.studentLoanMonthlyJPY : 0;
+
+    // Both one-off fees land on the first paycheque. The agent fee is the cash
+    // figure, which is zero when the fee was settled in kind.
+    const agentFee = i === 0 ? obligations.agentFeeCashJPY : 0;
+    const lawyer = i === 0 ? obligations.lawyerFeeJPY : 0;
+
+    const net = salary + additional - tax - monthlyLivingBudget - agentFee - studentLoan - lawyer;
+    balance += net;
+
+    return {
+      date,
+      salaryMonth,
+      salary,
+      additional,
+      tax,
+      living: monthlyLivingBudget,
+      agentFee,
+      studentLoan,
+      lawyer,
+      net,
+      planBalance: balance,
+    };
+  });
+}
+
+export type Plan = {
+  schedule: ScheduleRow[];
+  months: number;
+  grossSalary: number;
+  additional: number;
+  grossIncome: number;
+  tax: number;
+  effectiveTaxRate: number;
+  netIncome: number;
+  living: number;
+  studentLoan: number;
+  agentFeeCash: number;
+  agentFeeInKind: number;
+  lawyer: number;
+  totalObligations: number;
+  totalOut: number;
+  toSaveAndInvest: number;
+  perMonthSave: number;
+  savingsRate: number;
+  openingBalance: number;
+  endingBalance: number;
+  contractValueJPY: number;
+  contractGap: number;
+};
+
+/** The whole-season waterfall: money in, tax, spend, obligations, what is left. */
+export function buildPlan(budget: Budget): Plan {
+  const schedule = computeSchedule(budget);
+  const sum = (f: (r: ScheduleRow) => number) => schedule.reduce((s, r) => s + f(r), 0);
+
+  const grossSalary = sum((r) => r.salary);
+  const additional = sum((r) => r.additional);
+  const grossIncome = grossSalary + additional;
+  const tax = sum((r) => r.tax);
+  const netIncome = grossIncome - tax;
+
+  const living = sum((r) => r.living);
+  const studentLoan = sum((r) => r.studentLoan);
+  const agentFeeCash = sum((r) => r.agentFee);
+  const lawyer = sum((r) => r.lawyer);
+  const totalObligations = studentLoan + agentFeeCash + lawyer;
+  const totalOut = living + totalObligations;
+
+  const toSaveAndInvest = netIncome - totalOut;
+  const openingBalance = budget.openingBalance.planStartJPY;
+
+  return {
+    schedule,
+    months: schedule.length,
+    grossSalary,
+    additional,
+    grossIncome,
+    tax,
+    effectiveTaxRate: grossIncome > 0 ? tax / grossIncome : 0,
+    netIncome,
+    living,
+    studentLoan,
+    agentFeeCash,
+    // Real cost, no cash movement. Shown so the trade is visible rather than absent.
+    agentFeeInKind: budget.obligations.agentFeeSettlement === "in-kind" ? budget.obligations.agentFeeJPY : 0,
+    lawyer,
+    totalObligations,
+    totalOut,
+    toSaveAndInvest,
+    perMonthSave: schedule.length > 0 ? toSaveAndInvest / schedule.length : 0,
+    savingsRate: netIncome > 0 ? toSaveAndInvest / netIncome : 0,
+    openingBalance,
+    endingBalance: openingBalance + toSaveAndInvest,
+    contractValueJPY: budget.income.contractValueJPY,
+    contractGap: budget.income.contractValueJPY - grossSalary,
+  };
+}
+
+export type PlanProgress = {
+  paychequesReceived: number;
+  salaryReceived: number;
+  plannedLivingToDate: number;
+  actualSpendToDate: number;
+  spendVsPlan: number;
+  plannedBalanceNow: number;
+};
+
+/** Where the plan says you should be right now, against what has actually been logged. */
+export function planProgress(ledger: Ledger, today = todayISO()): PlanProgress {
+  const plan = buildPlan(ledger.budget);
+  const paid = plan.schedule.filter((r) => r.date <= today);
+  const salaryReceived = paid.reduce((s, r) => s + r.salary + r.additional, 0);
+  const plannedLivingToDate = paid.length * ledger.budget.monthlyLivingBudget;
+  const actualSpendToDate = ledger.spend.reduce((s, e) => s + e.amount, 0);
+
+  return {
+    paychequesReceived: paid.length,
+    salaryReceived,
+    plannedLivingToDate,
+    actualSpendToDate,
+    spendVsPlan: actualSpendToDate - plannedLivingToDate,
+    plannedBalanceNow: paid.length > 0 ? paid[paid.length - 1].planBalance : plan.openingBalance,
+  };
+}
+
+// ---------- editable inputs ----------
+
+/**
+ * The admin never rewrites the ledger. It stores a thin patch over the budget
+ * that ships in the encrypted blob, so the published figures stay the source of
+ * truth and an override can always be cleared back to them.
+ */
+export type BudgetOverrides = {
+  categories?: Record<string, number>;
+  income?: Partial<Pick<Income, "monthlySalaryJPY" | "firstMonthSalaryJPY" | "additionalIncomeJPY" | "taxRate" | "salaryMonths">>;
+  obligations?: Partial<
+    Pick<
+      Obligations,
+      "studentLoanMonthlyJPY" | "studentLoanMonths" | "studentLoanFirstSalaryMonthIndex" | "agentFeeCashJPY" | "lawyerFeeJPY"
+    >
+  >;
+  openingBalanceJPY?: number;
+  fxCadJpy?: number;
+};
+
+export const hasOverrides = (o: BudgetOverrides | null | undefined): boolean =>
+  !!o &&
+  (Object.keys(o.categories ?? {}).length > 0 ||
+    Object.keys(o.income ?? {}).length > 0 ||
+    Object.keys(o.obligations ?? {}).length > 0 ||
+    o.openingBalanceJPY !== undefined ||
+    o.fxCadJpy !== undefined);
+
+/**
+ * Groups and the monthly living budget are always recomputed from the
+ * categories, so raising Dining Out moves the Food group, the living budget,
+ * the daily line, the schedule and the savings figure in one step.
+ */
+export function applyOverrides(budget: Budget, o: BudgetOverrides | null | undefined): Budget {
+  const categories = budget.categories.map((c) =>
+    o?.categories?.[c.id] !== undefined ? { ...c, monthly: o.categories[c.id] } : c
+  );
+
+  const groupTotal = (id: string) => categories.filter((c) => c.group === id).reduce((s, c) => s + c.monthly, 0);
+  const groups = budget.groups.map((g) => ({ ...g, monthly: groupTotal(g.id) }));
+  const monthlyLivingBudget = categories.reduce((s, c) => s + c.monthly, 0);
+
+  return {
+    ...budget,
+    meta: o?.fxCadJpy ? { ...budget.meta, fx: { ...budget.meta.fx, CAD_JPY: o.fxCadJpy } } : budget.meta,
+    categories,
+    groups,
+    monthlyLivingBudget,
+    income: { ...budget.income, ...(o?.income ?? {}) },
+    obligations: { ...budget.obligations, ...(o?.obligations ?? {}) },
+    openingBalance:
+      o?.openingBalanceJPY !== undefined
+        ? { ...budget.openingBalance, planStartJPY: o.openingBalanceJPY }
+        : budget.openingBalance,
+  };
 }

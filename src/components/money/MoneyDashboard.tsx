@@ -1,18 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  applyOverrides,
   availableMonths,
   balanceSeries,
   buildMonthView,
+  buildPlan,
   fxIsStale,
+  hasOverrides,
   monthKey,
+  planProgress,
   todayISO,
   toCAD,
   yen,
+  type BudgetOverrides,
   type Ledger,
 } from "@/lib/money";
 import { BalancePlanChart, CategoryBars, DailySpendChart } from "./charts";
+import { BudgetPlan } from "./BudgetPlan";
+import { BudgetAdmin } from "./BudgetAdmin";
+
+const OVERRIDES_KEY = "money:budget-overrides";
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
@@ -26,13 +35,48 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 
 export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () => void }) {
   const today = todayISO();
-  const months = useMemo(() => availableMonths(ledger, today), [ledger, today]);
-  const [selected, setSelected] = useState(() => (months.includes(monthKey(today)) ? monthKey(today) : months[0]));
 
-  const view = useMemo(() => buildMonthView(ledger, selected, today), [ledger, selected, today]);
-  const balance = useMemo(() => balanceSeries(ledger), [ledger]);
+  // Budget edits live in this browser as a patch over the published ledger, so
+  // the numbers can be changed here without a rebuild and without ever losing
+  // the figures that shipped.
+  // Read on the first render, not in an effect: this component only ever mounts
+  // after the passphrase gate has unlocked, so there is no server render to
+  // mismatch against.
+  const [overrides, setOverrides] = useState<BudgetOverrides>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(OVERRIDES_KEY) ?? "{}") as BudgetOverrides;
+    } catch {
+      // A malformed or unreadable store is not worth blocking the page for.
+      return {};
+    }
+  });
 
-  const { budget } = ledger;
+  useEffect(() => {
+    try {
+      if (hasOverrides(overrides)) localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+      else localStorage.removeItem(OVERRIDES_KEY);
+    } catch {
+      // Private windows and blocked site data: the edits still apply this session.
+    }
+  }, [overrides]);
+
+  const working = useMemo<Ledger>(
+    () => ({ ...ledger, budget: applyOverrides(ledger.budget, overrides) }),
+    [ledger, overrides]
+  );
+
+  const months = useMemo(() => availableMonths(working, today), [working, today]);
+  const [selected, setSelected] = useState(() =>
+    availableMonths(ledger, today).includes(monthKey(today)) ? monthKey(today) : availableMonths(ledger, today)[0]
+  );
+
+  const view = useMemo(() => buildMonthView(working, selected, today), [working, selected, today]);
+  const balance = useMemo(() => balanceSeries(working.budget), [working]);
+  const plan = useMemo(() => buildPlan(working.budget), [working]);
+  const progress = useMemo(() => planProgress(working, today), [working, today]);
+
+  const budget = working.budget;
+  const edited = hasOverrides(overrides);
   const rate = budget.meta.fx.CAD_JPY;
   const stale = fxIsStale(budget, today);
   const categoryLabels = Object.fromEntries(budget.categories.map((c) => [c.id, c.label]));
@@ -50,6 +94,11 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </button>
       </div>
       <p className="mt-1 text-xs text-muted">{budget.period.label}</p>
+      {edited && (
+        <p className="mt-2 rounded border px-2 py-1 text-[0.7rem]" style={{ borderColor: "var(--yellow)", color: "var(--yellow)" }}>
+          Showing your edited budget, not the published one. Reset it in Budget admin below.
+        </p>
+      )}
 
       {/* ---- month switcher ---- */}
       <div className="mt-4 flex items-center gap-3 text-sm">
@@ -130,6 +179,13 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         ))}
       </div>
 
+      <Section
+        title="The whole plan"
+        note={`${plan.months} salary months, ${budget.period.start} to the last paycheque. Every figure here is editable at the bottom of this page.`}
+      >
+        <BudgetPlan budget={budget} plan={plan} progress={progress} rate={rate} />
+      </Section>
+
       <Section title="Daily spend" note={`Bars turn red above the ${yen(view.dailyBudget)} daily line.`}>
         <DailySpendChart
           byDay={view.byDay}
@@ -159,7 +215,7 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </Section>
       )}
 
-      <Section title="Planned balance" note="Straight from the sheet's projection. Not yet anchored to a real bank balance.">
+      <Section title="Planned balance" note="Derived from the inputs above. Not yet anchored to a real bank balance.">
         <BalancePlanChart series={balance} />
       </Section>
 
@@ -201,6 +257,17 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
           </div>
         </Section>
       )}
+
+      <Section title="Budget admin" note="Change any number and the whole page recalculates.">
+        <details className="rounded border border-border p-3" open={edited}>
+          <summary className="cursor-pointer text-xs">
+            {edited ? "Edited on this device" : "Edit the budget"}
+          </summary>
+          <div className="mt-4">
+            <BudgetAdmin published={ledger.budget} working={budget} overrides={overrides} setOverrides={setOverrides} />
+          </div>
+        </details>
+      </Section>
 
       <p className="mt-10 text-center text-[0.65rem] text-muted">
         Built {new Date(ledger.builtAt).toLocaleString("en-US")} · budget updated {budget.updated}
