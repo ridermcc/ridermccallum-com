@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { DayActual, GroupActual } from "@/lib/money";
+import type { DayActual, GroupActual, MonthProjection } from "@/lib/money";
 import { yen } from "@/lib/money";
 
 // Shared chart geometry. One accent hue carries every measure; budget lines are
@@ -246,6 +246,104 @@ export function BalancePlanChart({
         <Tooltip x={((hover! + 0.5) / series.length) * 100}>
           <div className="font-bold">{yen(hovered.plan)}</div>
           <div className="text-muted">planned, after {hovered.date}</div>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------- monthly projection bars */
+
+export function MonthlyProjectionChart({
+  months,
+  budget,
+}: {
+  months: MonthProjection[];
+  budget: number;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+
+  const W = 700;
+  const H = 210;
+  const padL = 8;
+  const padR = 8;
+  const padT = 16;
+  const padB = 30;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const yMax = Math.max(budget * 1.3, ...months.map((m) => m.projected)) || 1;
+  const slot = plotW / months.length;
+  const barW = Math.min(46, slot - 10);
+  const y = (v: number) => padT + plotH - (v / yMax) * plotH;
+  const budgetY = y(budget);
+  const hovered = hover === null ? null : months[hover];
+
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Projected living cost by month against budget">
+        {months.map((m, i) => {
+          const x = padL + i * slot + (slot - barW) / 2;
+          const over = m.counted && m.projected > budget;
+          // Solid to what is already logged, translucent for the projected
+          // remainder, so a month never looks more certain than it is.
+          const actualTop = y(Math.min(m.actual, m.projected));
+          const projTop = y(m.projected);
+          const base = padT + plotH;
+          const fill = !m.counted ? "var(--muted)" : over ? OVER : ACCENT;
+          const dim = hover !== null && hover !== i ? 0.4 : 1;
+
+          return (
+            <g key={m.key} opacity={dim}>
+              <rect x={x} y={projTop} width={barW} height={Math.max(0, base - projTop)} rx={3} fill={fill} opacity={m.counted ? 0.32 : 0.18} />
+              {m.actual > 0 && (
+                <rect x={x} y={actualTop} width={barW} height={Math.max(1, base - actualTop)} rx={3} fill={fill} />
+              )}
+              <rect
+                x={padL + i * slot}
+                y={padT}
+                width={slot}
+                height={plotH}
+                fill="transparent"
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                style={{ cursor: "pointer" }}
+              />
+              <text x={x + barW / 2} y={H - 17} textAnchor="middle" fontSize={9} fill="var(--muted)">
+                {m.label.slice(0, 3)}
+              </text>
+              {!m.counted && (
+                <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={8} fill="var(--muted)">
+                  n/a
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        <line x1={padL} x2={W - padR} y1={budgetY} y2={budgetY} stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" opacity={0.8} />
+        <text x={W - padR} y={budgetY - 5} textAnchor="end" fontSize={10} fill="var(--muted)">
+          budget {yen(budget)}
+        </text>
+        <line x1={padL} x2={W - padR} y1={padT + plotH} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
+      </svg>
+
+      {hovered && (
+        <Tooltip x={((hover! + 0.5) / months.length) * 100}>
+          <div className="font-bold">{hovered.label}</div>
+          {hovered.counted ? (
+            <>
+              <div className="text-muted">projected {yen(hovered.projected)}</div>
+              {hovered.actual > 0 && <div className="text-muted">logged so far {yen(hovered.actual)}</div>}
+              <div style={{ color: hovered.overUnder > 0 ? OVER : "var(--green)" }}>
+                {hovered.overUnder > 0 ? `${yen(hovered.overUnder)} over` : `${yen(-hovered.overUnder)} under`}
+              </div>
+            </>
+          ) : (
+            <div className="text-muted">
+              {yen(hovered.actual)} logged on {hovered.loggedDays} of {hovered.elapsedDays} days, not projected
+            </div>
+          )}
         </Tooltip>
       )}
     </div>

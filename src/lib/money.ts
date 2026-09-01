@@ -472,3 +472,196 @@ export function applyOverrides(budget: Budget, o: BudgetOverrides | null | undef
         : budget.openingBalance,
   };
 }
+
+// ---------- projecting the plan off what has actually been spent ----------
+
+/**
+ * The rate everything below is built on. It is spend per *logged* day, not per
+ * elapsed day: dividing by elapsed days would quietly count every untracked day
+ * as a zero and halve the projection. That makes the number honest but makes
+ * the sample size matter, so it is carried alongside and surfaced in the UI.
+ */
+export type ProjectionBasis = {
+  daysObserved: number;
+  firstLoggedDate: string | null;
+  lastLoggedDate: string | null;
+  totalObserved: number;
+  dailyRate: number;
+  confidence: "none" | "thin" | "early" | "reasonable";
+};
+
+export function projectionBasis(ledger: Ledger): ProjectionBasis {
+  const dates = [...new Set(ledger.spend.map((e) => e.date))].sort();
+  const total = ledger.spend.reduce((s, e) => s + e.amount, 0);
+  const n = dates.length;
+
+  return {
+    daysObserved: n,
+    firstLoggedDate: dates[0] ?? null,
+    lastLoggedDate: dates[n - 1] ?? null,
+    totalObserved: total,
+    dailyRate: n > 0 ? total / n : 0,
+    confidence: n === 0 ? "none" : n < 7 ? "thin" : n < 21 ? "early" : "reasonable",
+  };
+}
+
+export type MonthProjection = {
+  key: string;
+  label: string;
+  days: number;
+  /** untracked: logging had not started. partial: real gaps. current/future: projected. */
+  status: "untracked" | "partial" | "tracked" | "current" | "future";
+  budget: number;
+  actual: number;
+  loggedDays: number;
+  elapsedDays: number;
+  projected: number;
+  overUnder: number;
+  /** Whether this month feeds the season total. A month with gaps cannot. */
+  counted: boolean;
+};
+
+export type CategoryProjection = {
+  id: string;
+  label: string;
+  observed: number;
+  dailyRate: number;
+  budget: number;
+  projected: number;
+  overUnder: number;
+  /** Real spend against a zero budget. The budget is wrong, not the spending. */
+  unbudgeted: boolean;
+};
+
+export type SeasonProjection = {
+  basis: ProjectionBasis;
+  months: MonthProjection[];
+  countedMonths: number;
+  budgetedLiving: number;
+  projectedLiving: number;
+  overUnder: number;
+  /** Months shown but left out of the total because logging has gaps. */
+  uncountedMonths: MonthProjection[];
+  plannedSavings: number;
+  projectedSavings: number;
+  projectedEndingBalance: number;
+  monthlyRunRate: number;
+  safeDailyRate: number;
+  daysRemaining: number;
+  categories: CategoryProjection[];
+  representativeDays: number;
+};
+
+/**
+ * Carries the observed daily rate across every month the plan still has to pay
+ * for, and reports what that does to the savings figure.
+ *
+ * Months that ran before logging started are shown but never counted: their
+ * logged total is real spend, but it is a fraction of a month, and treating it
+ * as the month's actual would understate the plan by more than the projection
+ * corrects it.
+ */
+export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProjection {
+  const plan = buildPlan(ledger.budget);
+  const basis = projectionBasis(ledger);
+  const monthBudget = ledger.budget.monthlyLivingBudget;
+  const nowKey = monthKey(today);
+
+  // One living charge per salary month, on the calendar month it falls in.
+  const planMonthKeys = plan.schedule.map((r) => monthKey(r.date));
+
+  const months: MonthProjection[] = planMonthKeys.map((key) => {
+    const v = buildMonthView(ledger, key, today);
+    const isPast = key < nowKey;
+    const isFuture = key > nowKey;
+
+    // A past month counts only if it was logged end to end. "Untracked" means
+    // logging had not begun yet; "partial" means it had, and days are missing.
+    const wholeMonthLogged = v.loggedDays >= v.elapsedDays;
+    const startedLogging = basis.firstLoggedDate !== null && key >= monthKey(basis.firstLoggedDate);
+
+    const status: MonthProjection["status"] = isFuture
+      ? "future"
+      : isPast
+        ? wholeMonthLogged
+          ? "tracked"
+          : startedLogging
+            ? "partial"
+            : "untracked"
+        : "current";
+
+    const remainingDays = isFuture ? v.days : isPast ? 0 : v.days - v.elapsedDays;
+    const projected = isPast ? v.spent : v.spent + basis.dailyRate * remainingDays;
+    const counted = status === "future" || status === "current" || status === "tracked";
+
+    return {
+      key,
+      label: monthLabel(key),
+      days: v.days,
+      status,
+      budget: monthBudget,
+      actual: v.spent,
+      loggedDays: v.loggedDays,
+      elapsedDays: v.elapsedDays,
+      projected,
+      overUnder: projected - monthBudget,
+      counted,
+    };
+  });
+
+  const counted = months.filter((m) => m.counted);
+  const budgetedLiving = counted.length * monthBudget;
+  const projectedLiving = counted.reduce((s, m) => s + m.projected, 0);
+  const overUnder = projectedLiving - budgetedLiving;
+
+  // What is still spendable, and over how many days, to land on budget.
+  const daysRemaining = counted.reduce(
+    (s, m) => s + (m.status === "future" ? m.days : m.status === "current" ? m.days - m.elapsedDays : 0),
+    0
+  );
+  const spentInCounted = counted.reduce((s, m) => s + m.actual, 0);
+  const safeDailyRate = daysRemaining > 0 ? Math.max(0, (budgetedLiving - spentInCounted) / daysRemaining) : 0;
+
+  // Categories are compared over one representative month so the figures line
+  // up with the monthly budgets they are read against.
+  const representativeDays = daysInMonth(nowKey);
+  const observedByCategory = new Map<string, number>();
+  for (const e of ledger.spend) observedByCategory.set(e.category, (observedByCategory.get(e.category) ?? 0) + e.amount);
+
+  const categories: CategoryProjection[] = ledger.budget.categories
+    .map((c) => {
+      const observed = observedByCategory.get(c.id) ?? 0;
+      const dailyRate = basis.daysObserved > 0 ? observed / basis.daysObserved : 0;
+      const projected = dailyRate * representativeDays;
+      return {
+        id: c.id,
+        label: c.label,
+        observed,
+        dailyRate,
+        budget: c.monthly,
+        projected,
+        overUnder: projected - c.monthly,
+        unbudgeted: c.monthly === 0 && observed > 0,
+      };
+    })
+    .sort((a, b) => b.overUnder - a.overUnder);
+
+  return {
+    basis,
+    months,
+    countedMonths: counted.length,
+    budgetedLiving,
+    projectedLiving,
+    overUnder,
+    uncountedMonths: months.filter((m) => !m.counted),
+    plannedSavings: plan.toSaveAndInvest,
+    // Overspending on living comes straight out of savings, yen for yen.
+    projectedSavings: plan.toSaveAndInvest - overUnder,
+    projectedEndingBalance: plan.endingBalance - overUnder,
+    monthlyRunRate: basis.dailyRate * representativeDays,
+    safeDailyRate,
+    daysRemaining,
+    categories,
+    representativeDays,
+  };
+}

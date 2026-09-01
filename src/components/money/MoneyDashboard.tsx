@@ -11,6 +11,7 @@ import {
   hasOverrides,
   monthKey,
   planProgress,
+  projectSeason,
   todayISO,
   toCAD,
   yen,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/money";
 import { BalancePlanChart, CategoryBars, DailySpendChart } from "./charts";
 import { BudgetPlan } from "./BudgetPlan";
+import { SpendProjection } from "./SpendProjection";
 import { BudgetAdmin } from "./BudgetAdmin";
 
 const OVERRIDES_KEY = "money:budget-overrides";
@@ -74,6 +76,7 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   const balance = useMemo(() => balanceSeries(working.budget), [working]);
   const plan = useMemo(() => buildPlan(working.budget), [working]);
   const progress = useMemo(() => planProgress(working, today), [working, today]);
+  const projection = useMemo(() => projectSeason(working, today), [working, today]);
 
   const budget = working.budget;
   const edited = hasOverrides(overrides);
@@ -184,6 +187,13 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         note={`${plan.months} salary months, ${budget.period.start} to the last paycheque. Every figure here is editable at the bottom of this page.`}
       >
         <BudgetPlan budget={budget} plan={plan} progress={progress} rate={rate} />
+      </Section>
+
+      <Section
+        title="Projection"
+        note="Your actual spending rate carried forward over the rest of the plan, and what it does to savings."
+      >
+        <SpendProjection projection={projection} rate={rate} />
       </Section>
 
       <Section title="Daily spend" note={`Bars turn red above the ${yen(view.dailyBudget)} daily line.`}>
