@@ -22,6 +22,9 @@ const CONFIDENCE: Record<SeasonProjection["basis"]["confidence"], { label: strin
   },
 };
 
+// yen() writes a negative as ¥-1,234; balances that can dip below zero want the sign out front.
+const signedYen = (n: number) => (n < 0 ? `−${yen(-n)}` : yen(n));
+
 function Stat({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
     <div className="rounded border border-border p-3">
@@ -38,6 +41,7 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
   const p = projection;
   const conf = CONFIDENCE[p.basis.confidence];
   const over = p.overUnder > 0;
+  const overHigh = p.overUnderHigh > 0;
 
   if (p.basis.daysObserved === 0) {
     return <p className="text-xs text-muted">{conf.note}</p>;
@@ -52,29 +56,46 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
     );
   }
 
-  const monthlyDelta = p.monthlyRunRate - p.budgetedLiving / Math.max(1, p.countedMonths);
+  const big = p.basis.bigDays;
+  const splitMatters = big.count > 0 && p.overUnderHigh - p.overUnder > 1000;
 
   return (
     <div className="flex flex-col gap-5">
-      {/* headline */}
+      {/* headline: the typical-day scenario leads, the big-day scenario brackets it */}
       <div className="rounded border border-border p-4">
         <div className="text-[0.7rem] tracking-wide text-muted uppercase">
           Projected over the {p.countedMonths} months still to pay for
         </div>
-        <div className="mt-1 flex items-baseline gap-3">
-          <span className="text-4xl" style={{ color: over ? "var(--red)" : "var(--green)" }}>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-4xl tabular-nums">
             {over ? "+" : "−"}
             {yen(Math.abs(p.overUnder))}
           </span>
-          <span className="text-sm text-muted">{over ? "over budget" : "under budget"}</span>
+          <span className="text-sm" style={{ color: over ? "var(--red)" : "var(--green)" }}>
+            {over ? "over" : "under"} budget on typical days
+          </span>
         </div>
         <div className="mt-1 text-xs text-muted">
           {yen(p.projectedLiving)} projected against {yen(p.budgetedLiving)} budgeted · {toCAD(Math.abs(p.overUnder), rate)}
         </div>
 
-        <p className="mt-3 text-[0.72rem] leading-relaxed">
-          At {yen(p.basis.dailyRate)} a day you spend {yen(p.monthlyRunRate)} in a {p.representativeDays}-day month, which
-          is {yen(Math.abs(monthlyDelta))} {monthlyDelta > 0 ? "more" : "less"} than the {yen(p.budgetedLiving / Math.max(1, p.countedMonths))} budget.
+        {splitMatters && (
+          <p className="mt-3 text-[0.72rem] leading-relaxed">
+            If the big days keep their current pace it lands{" "}
+            <span style={{ color: overHigh ? "var(--red)" : "var(--green)" }}>
+              {overHigh ? "+" : "−"}
+              {yen(Math.abs(p.overUnderHigh))} {overHigh ? "over" : "under"}
+            </span>
+            . {big.count} {big.count === 1 ? "day carries" : "days carry"} {yen(big.total)},{" "}
+            {Math.round(big.share * 100)}% of everything logged, so the month is decided by the big days, not the
+            routine ones.
+          </p>
+        )}
+
+        <p className="mt-2 text-[0.72rem] leading-relaxed text-muted">
+          A typical logged day runs {yen(p.basis.typicalDailyRate)} ({yen(p.typicalMonthlyRunRate)} a month). The
+          all-in average is {yen(p.basis.dailyRate)} a day because of the big ones; the projection carries both rates
+          forward.
         </p>
 
         <p className="mt-2 rounded border px-2 py-1 text-[0.7rem] leading-relaxed" style={{ borderColor: conf.color, color: conf.color }}>
@@ -86,23 +107,28 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Planned savings" value={yen(p.plannedSavings)} />
         <Stat
-          label="Projected savings"
-          value={yen(p.projectedSavings)}
-          sub={toCAD(p.projectedSavings, rate)}
+          label="Projected savings, typical days"
+          value={signedYen(p.projectedSavings)}
+          sub={splitMatters ? `${signedYen(p.projectedSavingsLow)} if big days continue` : toCAD(p.projectedSavings, rate)}
           color={over ? "var(--red)" : "var(--green)"}
         />
-        <Stat label="Projected ending balance" value={yen(p.projectedEndingBalance)} sub={toCAD(p.projectedEndingBalance, rate)} />
+        <Stat
+          label="Projected ending balance"
+          value={signedYen(p.projectedEndingBalance)}
+          sub={splitMatters ? `${signedYen(p.projectedEndingBalanceLow)} if big days continue` : toCAD(p.projectedEndingBalance, rate)}
+        />
         <Stat
           label="To land on budget"
           value={`${yen(p.safeDailyRate)}/day`}
-          sub={`${p.daysRemaining} days left, now ${yen(p.basis.dailyRate)}`}
-          color={p.safeDailyRate < p.basis.dailyRate ? "var(--yellow)" : undefined}
+          sub={`${p.daysRemaining} days left, typical day now ${yen(p.basis.typicalDailyRate)}`}
+          color={p.safeDailyRate < p.basis.typicalDailyRate ? "var(--yellow)" : undefined}
         />
       </div>
 
       <div>
         <p className="mb-2 text-[0.7rem] text-muted">
-          Solid is logged, translucent is projected at today&apos;s rate. Bars turn red above the budget line.
+          Solid is logged, translucent carries typical days to month end, the whisker marks where the month lands if
+          the big days keep their pace. Bars turn red above the budget line.
         </p>
         <MonthlyProjectionChart months={p.months} budget={p.budgetedLiving / Math.max(1, p.countedMonths)} />
       </div>
@@ -121,12 +147,13 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
         <h3 className="text-[0.7rem] tracking-wide text-muted uppercase">
           By category, per {p.representativeDays}-day month
         </h3>
-        <div className="mt-2 overflow-x-auto">
-          <table className="w-full min-w-[26rem] text-[0.72rem] tabular-nums">
+        <div className="mt-2">
+          {/* the budget column steps back on phones so projected and over/under stay on screen */}
+          <table className="w-full text-[0.72rem] tabular-nums">
             <thead>
               <tr className="text-muted">
                 <th className="py-1 pr-3 text-left font-normal">Category</th>
-                <th className="py-1 pl-3 text-right font-normal">Budget</th>
+                <th className="hidden py-1 pl-3 text-right font-normal sm:table-cell">Budget</th>
                 <th className="py-1 pl-3 text-right font-normal">Projected</th>
                 <th className="py-1 pl-3 text-right font-normal">Over / under</th>
               </tr>
@@ -144,7 +171,7 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
                         </span>
                       )}
                     </td>
-                    <td className="py-1.5 pl-3 text-right text-muted">{c.budget === 0 ? "·" : yen(c.budget)}</td>
+                    <td className="hidden py-1.5 pl-3 text-right text-muted sm:table-cell">{c.budget === 0 ? "·" : yen(c.budget)}</td>
                     <td className="py-1.5 pl-3 text-right">{c.projected === 0 ? <span className="text-muted">·</span> : yen(c.projected)}</td>
                     <td
                       className="py-1.5 pl-3 text-right"
@@ -158,8 +185,9 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
           </table>
         </div>
         <p className="mt-2 text-[0.7rem] leading-relaxed text-muted">
-          Categories marked not budgeted carry real spend against a zero line, so the budget is what is wrong there, not
-          the spending. Fix them in Budget admin and this projection moves with it.
+          The category split still uses the all-in average, every yen of the big days included, so it shows where the
+          money actually went. Categories marked not budgeted carry real spend against a zero line: the budget is what
+          is wrong there, not the spending. Fix them in Budget admin and this projection moves with it.
         </p>
       </div>
     </div>

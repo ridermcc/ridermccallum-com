@@ -134,7 +134,18 @@ export type GroupActual = {
   over: boolean;
 };
 
-export type DayActual = { day: number; date: string; total: number; byCategory: Record<string, number> };
+export type DayActual = {
+  day: number;
+  date: string;
+  total: number;
+  byCategory: Record<string, number>;
+  /**
+   * What this day was allowed to spend and still land the month on budget,
+   * given everything spent before it. Starts at budget/days and adapts: a heavy
+   * day pulls every later day's allowance down, a quiet one pushes it back up.
+   */
+  allowance: number;
+};
 
 export type MonthView = {
   key: string;
@@ -149,6 +160,8 @@ export type MonthView = {
   pctOfBudget: number;
   dailyBudget: number;
   dailyPaceActual: number;
+  /** What each remaining day can carry to still land the month on budget. */
+  safePerDay: number;
   projectedMonthEnd: number;
   projectedOverUnder: number;
   onPace: boolean;
@@ -197,17 +210,22 @@ export function buildMonthView(ledger: Ledger, key: string, today = todayISO()):
     };
   });
 
+  const monthBudget = budget.monthlyLivingBudget;
+
+  let spentBefore = 0;
   const byDay: DayActual[] = Array.from({ length: days }, (_, i) => {
     const day = i + 1;
     const date = `${key}-${String(day).padStart(2, "0")}`;
     const dayEntries = entries.filter((e) => e.date === date);
     const byCategory: Record<string, number> = {};
     for (const e of dayEntries) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
-    return { day, date, total: dayEntries.reduce((s, e) => s + e.amount, 0), byCategory };
+    const total = dayEntries.reduce((s, e) => s + e.amount, 0);
+    const allowance = Math.max(0, (monthBudget - spentBefore) / (days - day + 1));
+    spentBefore += total;
+    return { day, date, total, byCategory, allowance };
   });
 
   const spent = entries.reduce((s, e) => s + e.amount, 0);
-  const monthBudget = budget.monthlyLivingBudget;
   const dailyPaceActual = elapsedDays > 0 ? spent / elapsedDays : 0;
   const projectedMonthEnd = elapsedDays > 0 ? dailyPaceActual * days : 0;
 
@@ -224,6 +242,7 @@ export function buildMonthView(ledger: Ledger, key: string, today = todayISO()):
     pctOfBudget: spent / monthBudget,
     dailyBudget: monthBudget / days,
     dailyPaceActual,
+    safePerDay: elapsedDays < days ? Math.max(0, monthBudget - spent) / (days - elapsedDays) : 0,
     projectedMonthEnd,
     projectedOverUnder: projectedMonthEnd - monthBudget,
     // On pace when you have spent no more of the budget than of the month.
@@ -486,14 +505,27 @@ export type ProjectionBasis = {
   firstLoggedDate: string | null;
   lastLoggedDate: string | null;
   totalObserved: number;
+  /** Mean spend per logged day. Every yen counts, so one big night moves it a long way. */
   dailyRate: number;
+  /** Median of the daily totals. What a normal day costs; a big night barely moves it. */
+  typicalDailyRate: number;
+  /** Days that ran past twice the typical day, and how much of all spend they carry. */
+  bigDays: { count: number; total: number; share: number };
   confidence: "none" | "thin" | "early" | "reasonable";
 };
 
 export function projectionBasis(ledger: Ledger): ProjectionBasis {
-  const dates = [...new Set(ledger.spend.map((e) => e.date))].sort();
-  const total = ledger.spend.reduce((s, e) => s + e.amount, 0);
+  const byDate = new Map<string, number>();
+  for (const e of ledger.spend) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount);
+  const dates = [...byDate.keys()].sort();
+  const dayTotals = [...byDate.values()].sort((a, b) => a - b);
+  const total = dayTotals.reduce((s, v) => s + v, 0);
   const n = dates.length;
+
+  const mid = n >> 1;
+  const typical = n === 0 ? 0 : n % 2 === 1 ? dayTotals[mid] : (dayTotals[mid - 1] + dayTotals[mid]) / 2;
+  const big = dayTotals.filter((v) => v > typical * 2);
+  const bigTotal = big.reduce((s, v) => s + v, 0);
 
   return {
     daysObserved: n,
@@ -501,6 +533,8 @@ export function projectionBasis(ledger: Ledger): ProjectionBasis {
     lastLoggedDate: dates[n - 1] ?? null,
     totalObserved: total,
     dailyRate: n > 0 ? total / n : 0,
+    typicalDailyRate: typical,
+    bigDays: { count: big.length, total: bigTotal, share: total > 0 ? bigTotal / total : 0 },
     confidence: n === 0 ? "none" : n < 7 ? "thin" : n < 21 ? "early" : "reasonable",
   };
 }
@@ -515,8 +549,12 @@ export type MonthProjection = {
   actual: number;
   loggedDays: number;
   elapsedDays: number;
+  /** Logged spend plus typical days to month end. The fair reading. */
   projected: number;
+  /** Logged spend plus the all-in average to month end: what happens if the big days keep coming. */
+  projectedHigh: number;
   overUnder: number;
+  overUnderHigh: number;
   /** Whether this month feeds the season total. A month with gaps cannot. */
   counted: boolean;
 };
@@ -538,14 +576,20 @@ export type SeasonProjection = {
   months: MonthProjection[];
   countedMonths: number;
   budgetedLiving: number;
+  /** Typical-day scenario. The Low/High pair brackets it with the all-in average. */
   projectedLiving: number;
+  projectedLivingHigh: number;
   overUnder: number;
+  overUnderHigh: number;
   /** Months shown but left out of the total because logging has gaps. */
   uncountedMonths: MonthProjection[];
   plannedSavings: number;
   projectedSavings: number;
+  projectedSavingsLow: number;
   projectedEndingBalance: number;
+  projectedEndingBalanceLow: number;
   monthlyRunRate: number;
+  typicalMonthlyRunRate: number;
   safeDailyRate: number;
   daysRemaining: number;
   categories: CategoryProjection[];
@@ -591,7 +635,8 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
         : "current";
 
     const remainingDays = isFuture ? v.days : isPast ? 0 : v.days - v.elapsedDays;
-    const projected = isPast ? v.spent : v.spent + basis.dailyRate * remainingDays;
+    const projected = isPast ? v.spent : v.spent + basis.typicalDailyRate * remainingDays;
+    const projectedHigh = isPast ? v.spent : v.spent + basis.dailyRate * remainingDays;
     const counted = status === "future" || status === "current" || status === "tracked";
 
     return {
@@ -604,7 +649,9 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
       loggedDays: v.loggedDays,
       elapsedDays: v.elapsedDays,
       projected,
+      projectedHigh,
       overUnder: projected - monthBudget,
+      overUnderHigh: projectedHigh - monthBudget,
       counted,
     };
   });
@@ -612,7 +659,9 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
   const counted = months.filter((m) => m.counted);
   const budgetedLiving = counted.length * monthBudget;
   const projectedLiving = counted.reduce((s, m) => s + m.projected, 0);
+  const projectedLivingHigh = counted.reduce((s, m) => s + m.projectedHigh, 0);
   const overUnder = projectedLiving - budgetedLiving;
+  const overUnderHigh = projectedLivingHigh - budgetedLiving;
 
   // What is still spendable, and over how many days, to land on budget.
   const daysRemaining = counted.reduce(
@@ -652,13 +701,18 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
     countedMonths: counted.length,
     budgetedLiving,
     projectedLiving,
+    projectedLivingHigh,
     overUnder,
+    overUnderHigh,
     uncountedMonths: months.filter((m) => !m.counted),
     plannedSavings: plan.toSaveAndInvest,
     // Overspending on living comes straight out of savings, yen for yen.
     projectedSavings: plan.toSaveAndInvest - overUnder,
+    projectedSavingsLow: plan.toSaveAndInvest - overUnderHigh,
     projectedEndingBalance: plan.endingBalance - overUnder,
+    projectedEndingBalanceLow: plan.endingBalance - overUnderHigh,
     monthlyRunRate: basis.dailyRate * representativeDays,
+    typicalMonthlyRunRate: basis.typicalDailyRate * representativeDays,
     safeDailyRate,
     daysRemaining,
     categories,

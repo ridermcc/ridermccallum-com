@@ -168,12 +168,44 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </p>
       )}
 
+      {/* ---- today's number: the adaptive daily budget ---- */}
+      {view.isCurrentMonth && view.elapsedDays < view.days && (
+        <div className="mt-4 rounded border border-border p-4">
+          <div className="text-[0.7rem] tracking-wide text-muted uppercase">To stay on track</div>
+          {view.remaining > 0 ? (
+            <>
+              <div className="mt-1 flex items-baseline gap-3">
+                <span className="text-2xl tabular-nums">{yen(view.safePerDay)}</span>
+                <span className="text-sm text-muted">a day for the {view.days - view.elapsedDays} days left</span>
+              </div>
+              <p className="mt-1 text-[0.72rem] leading-relaxed text-muted">
+                Hold that and the month lands on its {yen(view.budget)} budget. A typical day so far runs{" "}
+                {yen(projection.basis.typicalDailyRate)}.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mt-1 flex items-baseline gap-3">
+                <span className="text-2xl tabular-nums">{yen(-view.remaining)}</span>
+                <span className="text-sm text-muted">past the month&apos;s budget, {view.days - view.elapsedDays} days left</span>
+              </div>
+              <p className="mt-1 text-[0.72rem] leading-relaxed text-muted">
+                The month&apos;s {yen(view.budget)} is spent, so every yen from here comes out of savings. Quiet, typical
+                days from now on end the month about{" "}
+                {yen(-view.remaining + projection.basis.typicalDailyRate * (view.days - view.elapsedDays))} over; next
+                month starts the meter at zero again.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ---- stat row ---- */}
       <div className="mt-4 grid grid-cols-3 gap-3 text-center">
         {[
           { label: "Left this month", value: yen(Math.max(0, view.remaining)) },
           { label: "Daily pace", value: yen(view.dailyPaceActual) },
-          { label: "Safe per day", value: yen(view.elapsedDays < view.days ? Math.max(0, view.remaining) / (view.days - view.elapsedDays) : 0) },
+          { label: "Typical day", value: yen(projection.basis.typicalDailyRate) },
         ].map((s) => (
           <div key={s.label} className="rounded border border-border p-2">
             <div className="text-sm">{s.value}</div>
@@ -191,15 +223,19 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
 
       <Section
         title="Projection"
-        note="Your actual spending rate carried forward over the rest of the plan, and what it does to savings."
+        note="What a typical day costs, carried over the rest of the plan, with the big days shown as a bracket instead of baked into every future month."
       >
         <SpendProjection projection={projection} rate={rate} />
       </Section>
 
-      <Section title="Daily spend" note={`Bars turn red above the ${yen(view.dailyBudget)} daily line.`}>
+      <Section
+        title="Daily spend"
+        note={`Bars turn red on big days, past twice the ${yen(projection.basis.typicalDailyRate)} typical day. The stepped line is the adaptive daily budget: what each day could carry, given the spending before it. Days that blow past the scale are clipped and labeled.`}
+      >
         <DailySpendChart
           byDay={view.byDay}
           dailyBudget={view.dailyBudget}
+          typicalDailyRate={projection.basis.typicalDailyRate}
           categoryLabels={categoryLabels}
           elapsedDays={view.elapsedDays}
         />
@@ -209,21 +245,31 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         <CategoryBars groups={view.groups} />
       </Section>
 
-      {view.spent > 0 && (
-        <Section title="Month-end projection" note="Current daily pace carried to the end of the month.">
-          <div className="rounded border border-border p-3 text-sm">
-            <div className="flex items-baseline justify-between">
-              <span>{yen(view.projectedMonthEnd)}</span>
-              <span style={{ color: view.projectedOverUnder > 0 ? "var(--red)" : "var(--green)" }}>
-                {view.projectedOverUnder > 0
-                  ? `${yen(view.projectedOverUnder)} over budget`
-                  : `${yen(Math.abs(view.projectedOverUnder))} under budget`}
-              </span>
+      {view.spent > 0 && view.isCurrentMonth && view.elapsedDays < view.days && (() => {
+        // A range, not a verdict: logged spend plus typical days to month end,
+        // bracketed by the all-in average that the big days drag upward.
+        const remainingDays = view.days - view.elapsedDays;
+        const low = view.spent + projection.basis.typicalDailyRate * remainingDays;
+        const high = view.spent + projection.basis.dailyRate * remainingDays;
+        const lowDelta = low - view.budget;
+        return (
+          <Section title="Month-end projection" note="Logged spend plus typical days ahead; the second figure adds big days at their current pace.">
+            <div className="rounded border border-border p-3 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <span className="tabular-nums">
+                  {yen(low)}
+                  {high > low + 1 && <span className="text-muted"> to {yen(high)}</span>}
+                </span>
+                <span style={{ color: lowDelta > 0 ? "var(--red)" : "var(--green)" }}>
+                  {lowDelta > 0 ? `${yen(lowDelta)} over budget` : `${yen(Math.abs(lowDelta))} under budget`}
+                  {high > low + 1 && " on typical days"}
+                </span>
+              </div>
+              <p className="mt-1 text-[0.7rem] text-muted">{toCAD(low, rate)} at {rate} JPY per CAD</p>
             </div>
-            <p className="mt-1 text-[0.7rem] text-muted">{toCAD(view.projectedMonthEnd, rate)} at {rate} JPY per CAD</p>
-          </div>
-        </Section>
-      )}
+          </Section>
+        );
+      })()}
 
       <Section title="Planned balance" note="Derived from the inputs above. Not yet anchored to a real bank balance.">
         <BalancePlanChart series={balance} />
