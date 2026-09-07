@@ -18,7 +18,7 @@ import {
   type BudgetOverrides,
   type Ledger,
 } from "@/lib/money";
-import { BalancePlanChart, CategoryBars, DailySpendChart } from "./charts";
+import { BalancePlanChart, CategoryBars, CategoryDonut, DailySpendChart } from "./charts";
 import { BudgetPlan } from "./BudgetPlan";
 import { SpendProjection } from "./SpendProjection";
 import { BudgetAdmin } from "./BudgetAdmin";
@@ -86,6 +86,15 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
 
   const idx = months.indexOf(selected);
   const paceDelta = view.spent - view.budget * view.monthProgress;
+
+  // Share-of-spend inputs. The day donut follows the last day that actually
+  // carries an entry, not the calendar day: on a morning with nothing logged
+  // yet, an empty ring says less than yesterday's split does.
+  const monthByCategory = view.entries.reduce<Record<string, number>>((acc, e) => {
+    acc[e.category] = (acc[e.category] ?? 0) + e.amount;
+    return acc;
+  }, {});
+  const lastLogged = [...view.byDay].reverse().find((d) => d.total > 0) ?? null;
 
   return (
     <div className="pb-16">
@@ -244,6 +253,30 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
       <Section title="By category" note="Food, phone, transport are the live ones. Other is the sheet's remainder.">
         <CategoryBars groups={view.groups} />
       </Section>
+
+      {view.spent > 0 && (
+        <Section
+          title="Where it goes"
+          note="Share of spend by category. Slices run biggest to smallest, darkest to lightest; a small tail folds into Other."
+        >
+          <div className="flex flex-col gap-6">
+            {lastLogged && (
+              <CategoryDonut
+                byCategory={lastLogged.byCategory}
+                categoryLabels={categoryLabels}
+                total={lastLogged.total}
+                caption={lastLogged.date === today ? "Today" : lastLogged.date.slice(5)}
+              />
+            )}
+            <CategoryDonut
+              byCategory={monthByCategory}
+              categoryLabels={categoryLabels}
+              total={view.spent}
+              caption={view.label}
+            />
+          </div>
+        </Section>
+      )}
 
       {view.spent > 0 && view.isCurrentMonth && view.elapsedDays < view.days && (() => {
         // A range, not a verdict: logged spend plus typical days to month end,

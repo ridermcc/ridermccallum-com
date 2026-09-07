@@ -469,3 +469,174 @@ export function MonthlyProjectionChart({
     </div>
   );
 }
+
+/* --------------------------------------------------------- category donuts */
+
+/** A slice of a share chart: one category, or the folded tail. */
+type Share = { id: string; label: string; amount: number; pct: number; other: boolean };
+
+// Six named slices is the ceiling. Past that the arcs get too thin to hit or
+// read, and the ramp runs out of separable steps, so the tail folds into one
+// "Other" wedge rather than being split into slivers.
+const MAX_NAMED = 6;
+
+/**
+ * Categories to slices, biggest first, tail folded. Anything under 2% is folded
+ * even when there is room, because a sub-2% arc is under two degrees wide.
+ */
+export function toShares(byCategory: Record<string, number>, labels: Record<string, string>): Share[] {
+  const total = Object.values(byCategory).reduce((s, v) => s + v, 0);
+  if (total <= 0) return [];
+
+  const ranked = Object.entries(byCategory)
+    .filter(([, amount]) => amount > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const named = ranked.filter(([, amount], i) => i < MAX_NAMED && amount / total >= 0.02);
+  const tail = ranked.slice(named.length).reduce((s, [, amount]) => s + amount, 0);
+
+  const shares: Share[] = named.map(([id, amount]) => ({
+    id,
+    label: labels[id] ?? id,
+    amount,
+    pct: amount / total,
+    other: false,
+  }));
+  // A one-category tail keeps its own name: folding it would hide a real label
+  // behind "Other" and buy nothing.
+  if (tail > 0) {
+    const rest = ranked.slice(named.length);
+    if (rest.length === 1) {
+      const [id, amount] = rest[0];
+      shares.push({ id, label: labels[id] ?? id, amount, pct: amount / total, other: false });
+    } else {
+      shares.push({ id: "__other", label: `Other (${rest.length})`, amount: tail, pct: tail / total, other: true });
+    }
+  }
+  return shares;
+}
+
+/** Ramp step for slice `i` of `n`, darkest first. "Other" sits outside the ramp. */
+function sliceFill(i: number, n: number, other: boolean) {
+  if (other) return "var(--muted)";
+  const t = n <= 1 ? 0 : i / (n - 1);
+  return `color-mix(in srgb, var(--ramp-dark) ${Math.round((1 - t) * 100)}%, var(--ramp-light))`;
+}
+
+function arcPath(cx: number, cy: number, rOuter: number, rInner: number, a0: number, a1: number) {
+  const p = (r: number, a: number) => [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  const [x0, y0] = p(rOuter, a0);
+  const [x1, y1] = p(rOuter, a1);
+  const [x2, y2] = p(rInner, a1);
+  const [x3, y3] = p(rInner, a0);
+  return `M${x0},${y0} A${rOuter},${rOuter} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${rInner},${rInner} 0 ${large} 0 ${x3},${y3} Z`;
+}
+
+/**
+ * Share of spend by category, as a donut plus an always-visible table of the
+ * same numbers. The table is not decoration: the ramp's lighter steps sit under
+ * 3:1 against the light surface, so the figures have to be readable without
+ * relying on the fills, and a share chart is read for its numbers anyway.
+ */
+export function CategoryDonut({
+  byCategory,
+  categoryLabels,
+  total,
+  caption,
+}: {
+  byCategory: Record<string, number>;
+  categoryLabels: Record<string, string>;
+  total: number;
+  caption: string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shares = toShares(byCategory, categoryLabels);
+
+  if (shares.length === 0) {
+    return <p className="text-[0.72rem] text-muted">Nothing logged {caption.toLowerCase()}.</p>;
+  }
+
+  const S = 148;
+  const c = S / 2;
+  const rOuter = c - 2;
+  const rInner = rOuter * 0.6;
+  // A 2px surface gap between neighbouring arcs, expressed as the angle that
+  // subtends 2px at the outer radius, and never more than a third of a slice.
+  const gap = 2 / rOuter;
+
+  // Slice i starts where every slice before it ended, measured from 12 o'clock.
+  const arcs = shares.map((s, i) => {
+    const sweep = s.pct * Math.PI * 2;
+    const before = shares.slice(0, i).reduce((sum, p) => sum + p.pct, 0);
+    const a0 = -Math.PI / 2 + before * Math.PI * 2;
+    const inset = Math.min(gap / 2, sweep / 3);
+    return { share: s, a0: a0 + inset, a1: a0 + sweep - inset, full: sweep >= Math.PI * 2 - 1e-6 };
+  });
+
+  const shown = hover === null ? null : shares[hover];
+
+  return (
+    <div className="donut-ramp flex flex-wrap items-center gap-x-6 gap-y-4">
+      <svg
+        width={S}
+        height={S}
+        role="img"
+        aria-label={`${caption}: ${shares.map((s) => `${s.label} ${Math.round(s.pct * 100)}%`).join(", ")}`}
+        onMouseLeave={() => setHover(null)}
+      >
+        {arcs.map((a, i) =>
+          // A lone category fills the ring, where the arc command degenerates.
+          a.full ? (
+            <circle
+              key={a.share.id}
+              cx={c}
+              cy={c}
+              r={(rOuter + rInner) / 2}
+              fill="none"
+              strokeWidth={rOuter - rInner}
+              stroke={sliceFill(i, shares.length, a.share.other)}
+            />
+          ) : (
+            <path
+              key={a.share.id}
+              d={arcPath(c, c, rOuter, rInner, a.a0, a.a1)}
+              fill={sliceFill(i, shares.length, a.share.other)}
+              opacity={hover === null || hover === i ? 1 : 0.45}
+              onMouseEnter={() => setHover(i)}
+            />
+          ),
+        )}
+        {/* The centre is the readout: the total at rest, the hovered slice on hover. */}
+        <text x={c} y={c - 3} textAnchor="middle" className="fill-[var(--foreground)] text-[0.8rem] tabular-nums">
+          {yen(shown ? shown.amount : total)}
+        </text>
+        <text x={c} y={c + 11} textAnchor="middle" className="fill-[var(--muted)] text-[0.6rem]">
+          {shown ? `${shown.label} · ${Math.round(shown.pct * 100)}%` : caption}
+        </text>
+      </svg>
+
+      {/* The table needs ~15rem before category names start truncating, so it
+          drops below the donut on a phone rather than squeezing in beside it. */}
+      <div className="min-w-[15rem] flex-1">
+        {shares.map((s, i) => (
+          <div
+            key={s.id}
+            className="flex items-baseline gap-2 py-0.5 text-xs"
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover(null)}
+          >
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+              style={{ background: sliceFill(i, shares.length, s.other) }}
+              aria-hidden
+            />
+            <span className="flex-1 truncate">{s.label}</span>
+            <span className="tabular-nums">{yen(s.amount)}</span>
+            <span className="w-9 text-right text-muted tabular-nums">{Math.round(s.pct * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

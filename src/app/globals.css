@@ -303,3 +303,22 @@ img {
   text-decoration-thickness: 0.28ex;
 }
 
+
+/* Donut ramp for the /money category charts. A share chart needs to tell a
+   handful of slices apart, and the site has no categorical palette, so the
+   slices carry a single-hue sequential ramp ordered biggest to smallest: the
+   shade restates the size the angle already shows, instead of inventing eight
+   hues that would have to survive a colorblind check. Endpoints are validated
+   per mode (monotone lightness, adjacent lightness gaps, and a light end that
+   clears 2:1 against that mode's surface). "Other" sits outside the ramp in
+   muted gray, so the folded tail never reads as a ranked slice. */
+.donut-ramp {
+  --ramp-dark: #0b4761;
+  --ramp-light: #7fb0c4;
+}
+@media (prefers-color-scheme: dark) {
+  .donut-ramp {
+    --ramp-dark: #d6effb;
+    --ramp-light: #2f7691;
+  }
+}
