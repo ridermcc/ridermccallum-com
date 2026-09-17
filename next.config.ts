@@ -3,6 +3,8 @@ import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
   pageExtensions: ["ts", "tsx", "md", "mdx"],
+  // Let phones on the local network load dev scripts (hydration, HMR).
+  allowedDevOrigins: ["127.0.0.1", "192.168.*.*"],
   async rewrites() {
     return [
       { source: "/europe", destination: "/europe/index.html" },
