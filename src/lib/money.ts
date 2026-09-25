@@ -113,7 +113,35 @@ export function monthLabel(key: string): string {
 
 // ---------- money formatting ----------
 
-export const yen = (n: number) => `¥${Math.round(n).toLocaleString("en-US")}`;
+// Display currency is a view setting only: the ledger stays in JPY. It is module
+// state because every figure on the page goes through `yen`, and the dashboard
+// re-renders its whole tree when the setting changes.
+export type DisplayCurrency = "JPY" | "SEK" | "USD" | "CAD";
+export const DISPLAY_CURRENCIES: DisplayCurrency[] = ["JPY", "SEK", "USD", "CAD"];
+
+let display: { code: DisplayCurrency; perJPY: number } = { code: "JPY", perJPY: 1 };
+
+export function setDisplayCurrency(code: DisplayCurrency, perJPY: number) {
+  display = { code, perJPY };
+}
+
+export const yen = (n: number) => {
+  if (display.code === "JPY") return `¥${Math.round(n).toLocaleString("en-US")}`;
+  const v = n * display.perJPY;
+  return v.toLocaleString("en-US", {
+    style: "currency",
+    currency: display.code,
+    maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0,
+  });
+};
+
+// Live rates, JPY base. Frankfurter serves ECB reference rates (updated each
+// working day) with open CORS and no key.
+export async function fetchDisplayRates(): Promise<{ date: string; rates: Record<Exclude<DisplayCurrency, "JPY">, number> }> {
+  const res = await fetch("https://api.frankfurter.dev/v1/latest?base=JPY&symbols=SEK,USD,CAD");
+  if (!res.ok) throw new Error(`rates ${res.status}`);
+  return res.json();
+}
 
 export const toCAD = (jpy: number, rate: number) =>
   `$${(jpy / rate).toLocaleString("en-US", { maximumFractionDigits: 0 })} CAD`;

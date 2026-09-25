@@ -7,15 +7,19 @@ import {
   balanceSeries,
   buildMonthView,
   buildPlan,
+  DISPLAY_CURRENCIES,
+  fetchDisplayRates,
   fxIsStale,
   hasOverrides,
   monthKey,
   planProgress,
   projectSeason,
+  setDisplayCurrency,
   todayISO,
   toCAD,
   yen,
   type BudgetOverrides,
+  type DisplayCurrency,
   type Ledger,
 } from "@/lib/money";
 import { BalancePlanChart, CategoryBars, CategoryDonut, DailySpendChart } from "./charts";
@@ -78,6 +82,18 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   const progress = useMemo(() => planProgress(working, today), [working, today]);
   const projection = useMemo(() => projectSeason(working, today), [working, today]);
 
+  // View-only currency. Rates load once on unlock; until they arrive (or if the
+  // fetch fails) the page stays in yen.
+  const [currency, setCurrency] = useState<DisplayCurrency>("JPY");
+  const [fx, setFx] = useState<{ date: string; rates: Record<string, number> } | null>(null);
+  const [fxError, setFxError] = useState(false);
+  useEffect(() => {
+    fetchDisplayRates().then(setFx, () => setFxError(true));
+  }, []);
+  // Set during render so every child formats with the current choice.
+  setDisplayCurrency(fx && currency !== "JPY" ? currency : "JPY", fx && currency !== "JPY" ? fx.rates[currency] : 1);
+  const converted = fx !== null && currency !== "JPY";
+
   const budget = working.budget;
   const edited = hasOverrides(overrides);
   const rate = budget.meta.fx.CAD_JPY;
@@ -101,11 +117,32 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
       {/* ---- header ---- */}
       <div className="flex items-baseline justify-between">
         <h1 className="text-lg">Money</h1>
-        <button onClick={onLock} className="text-xs text-muted underline decoration-[var(--ice-rest)] hover:decoration-[var(--ice-hover)]">
+        <div className="flex items-baseline gap-3 text-xs">
+          <div className="flex gap-1" role="group" aria-label="Display currency">
+            {DISPLAY_CURRENCIES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCurrency(c)}
+                disabled={c !== "JPY" && !fx}
+                aria-pressed={currency === c}
+                className={`rounded border px-1.5 py-0.5 disabled:opacity-30 ${currency === c ? "border-foreground" : "border-border text-muted"}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <button onClick={onLock} className="text-xs text-muted underline decoration-[var(--ice-rest)] hover:decoration-[var(--ice-hover)]">
           lock
-        </button>
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-xs text-muted">{budget.period.label}</p>
+      {converted && (
+        <p className="mt-1 text-[0.7rem] text-muted">
+          Viewing in {currency} at 1 {currency} = ¥{(1 / fx.rates[currency]).toFixed(2)} (ECB rate, {fx.date}). Ledger stays in yen.
+        </p>
+      )}
+      {fxError && <p className="mt-1 text-[0.7rem] text-muted">Live rates unavailable. Showing yen.</p>}
       {edited && (
         <p className="mt-2 rounded border px-2 py-1 text-[0.7rem]" style={{ borderColor: "var(--yellow)", color: "var(--yellow)" }}>
           Showing your edited budget, not the published one. Reset it in Budget admin below.
@@ -137,7 +174,7 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
           <span className="text-sm text-muted">of {yen(view.budget)}</span>
         </div>
         <div className="mt-1 text-xs text-muted">
-          {toCAD(view.spent, rate)}
+          {converted ? `¥${Math.round(view.spent).toLocaleString("en-US")}` : toCAD(view.spent, rate)}
           {stale && <span className="ml-2" style={{ color: "var(--yellow)" }}>FX rate is stale</span>}
         </div>
 
