@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { DayActual, GroupActual, MonthProjection } from "@/lib/money";
+import type { DayActual, GroupActual, MonthProjection, SpendEntry } from "@/lib/money";
 import { yen } from "@/lib/money";
 
 // Shared chart geometry. One accent hue carries every measure; budget lines are
 // recessive reference marks, and status colors appear only with a text label.
 const ACCENT = "var(--accent)";
 const OVER = "var(--red)";
+const UNDER = "var(--green)";
 
 /**
  * Charts render at the container's real pixel width instead of scaling a fixed
@@ -30,15 +31,70 @@ function useMeasuredWidth() {
   return { ref, width };
 }
 
-function Tooltip({ x, children }: { x: number; children: React.ReactNode }) {
+/**
+ * Tap or drag across a chart to pick a mark. `toIndex` maps an x offset inside
+ * the svg to a mark index. Vertical swipes still scroll the page (pan-y); a
+ * horizontal drag scrubs.
+ */
+function scrubProps(toIndex: (px: number) => number, count: number, onPick: (i: number) => void) {
+  const pick = (e: React.PointerEvent<SVGSVGElement>) => {
+    const px = e.clientX - e.currentTarget.getBoundingClientRect().left;
+    onPick(Math.max(0, Math.min(count - 1, toIndex(px))));
+  };
+  return {
+    style: { touchAction: "pan-y" as const, cursor: "crosshair", userSelect: "none" as const, WebkitUserSelect: "none" as const },
+    onPointerDown: pick,
+    onPointerMove: (e: React.PointerEvent<SVGSVGElement>) => {
+      if (e.pointerType === "mouse" || e.buttons > 0) pick(e);
+    },
+  };
+}
+
+/**
+ * The readout sits under the chart instead of floating over it: a finger never
+ * covers it and it never runs off the edge of a phone screen. It always shows
+ * something, so the chart is never a mystery before the first tap.
+ */
+function Readout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="pointer-events-none absolute z-10 -translate-x-1/2 rounded border border-border bg-background px-2 py-1 text-[0.7rem] leading-snug whitespace-nowrap shadow-sm"
-      style={{ left: `${Math.min(88, Math.max(12, x))}%`, bottom: "100%" }}
-    >
+    <div className="mt-2 min-h-[3.25rem] rounded border border-border px-3 py-2 text-xs leading-relaxed" aria-live="polite">
       {children}
     </div>
   );
+}
+
+/** A round step for one or two gridlines: 1, 2 or 5 times a power of ten. */
+function niceStep(max: number, lines = 2) {
+  const raw = max / lines;
+  if (raw <= 0) return 1;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  const n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+}
+
+/** Recessive gridlines with their value sitting just above the line, left-aligned. */
+function Grid({ max, y, x0, x1 }: { max: number; y: (v: number) => number; x0: number; x1: number }) {
+  const step = niceStep(max);
+  const ticks: number[] = [];
+  for (let v = step; v < max; v += step) ticks.push(v);
+  return (
+    <>
+      {ticks.map((v) => (
+        <g key={v}>
+          <line x1={x0} x2={x1} y1={y(v)} y2={y(v)} stroke="var(--border)" strokeWidth={1} opacity={0.7} />
+          {/* a surface halo keeps the value legible where a bar crosses it */}
+          <text x={x0} y={y(v) - 4} fontSize={10} fill="var(--muted)" stroke="var(--background)" strokeWidth={3} paintOrder="stroke">
+            {yen(v)}
+          </text>
+        </g>
+      ))}
+    </>
+  );
+}
+
+function dayLabel(date: string) {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
 /* ---------------------------------------------------------------- daily bars */
@@ -56,12 +112,12 @@ export function DailySpendChart({
   categoryLabels: Record<string, string>;
   elapsedDays: number;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const { ref, width } = useMeasuredWidth();
 
   const W = width || 0;
   const narrow = W > 0 && W < 460;
-  const H = narrow ? 180 : 200;
+  const H = narrow ? 210 : 220;
   const padL = 6;
   const padR = 6;
   const padT = 18;
@@ -79,8 +135,11 @@ export function DailySpendChart({
   const barW = Math.max(3, slot - 2); // 2px surface gap between adjacent bars
   const y = (v: number) => padT + plotH - (Math.min(v, yMax) / yMax) * plotH;
 
-  const hovered = hover === null ? null : byDay[hover];
-  const anySpend = byDay.some((d) => d.total > 0);
+  // Until a tap, the readout shows the last day with spend on it.
+  const lastSpend = byDay.map((d) => d.total > 0).lastIndexOf(true);
+  const sel = picked !== null && picked < byDay.length ? picked : lastSpend >= 0 ? lastSpend : null;
+  const selected = sel === null ? null : byDay[sel];
+  const anySpend = lastSpend >= 0;
   const labelEvery = narrow ? 7 : 5;
 
   // The adaptive allowance: a step through the days already lived (what each
@@ -100,11 +159,17 @@ export function DailySpendChart({
   const safeY = y(safeNow);
 
   return (
-    <div className="relative" ref={ref}>
+    <div ref={ref}>
       {W === 0 ? (
         <div style={{ height: H }} />
       ) : (
-        <svg width={W} height={H} role="img" aria-label="Daily spend for the month against the adaptive daily budget">
+        <svg
+          width={W}
+          height={H}
+          role="img"
+          aria-label="Daily spend for the month against the adaptive daily budget"
+          {...scrubProps((px) => Math.floor((px - padL) / slot), byDay.length, setPicked)}
+        >
           <line x1={padL} x2={W - padR} y1={padT + plotH} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
 
           {byDay.map((d, i) => {
@@ -115,6 +180,7 @@ export function DailySpendChart({
             const barX = x + (slot - barW) / 2;
             return (
               <g key={d.date}>
+                {sel === i && <rect x={x} y={padT} width={slot} height={plotH} fill="var(--moretransblack)" />}
                 {h > 0 && (
                   <rect
                     x={barX}
@@ -123,38 +189,15 @@ export function DailySpendChart({
                     height={h}
                     rx={Math.min(4, barW / 2)}
                     fill={over ? OVER : ACCENT}
-                    opacity={hover === null || hover === i ? 1 : 0.45}
                   />
                 )}
-                {/* a clipped bar breaks the frame: gap marks the break, label carries the real value */}
+                {/* a clipped bar breaks the frame; the readout carries its real value */}
                 {clipped && (
                   <>
                     <rect x={barX - 1} y={padT + 14} width={barW + 2} height={2.5} fill="var(--background)" />
                     <rect x={barX - 1} y={padT + 19} width={barW + 2} height={2.5} fill="var(--background)" />
-                    <text
-                      x={barX + barW / 2 + 3.5}
-                      y={padT + 28}
-                      fontSize={10}
-                      fill="var(--background)"
-                      textAnchor="end"
-                      transform={`rotate(-90 ${barX + barW / 2 + 3.5} ${padT + 28})`}
-                    >
-                      {yen(d.total)}
-                    </text>
                   </>
                 )}
-                {/* hit target spans the full plot height, bigger than the mark */}
-                <rect
-                  x={x}
-                  y={padT}
-                  width={slot}
-                  height={plotH}
-                  fill="transparent"
-                  onMouseEnter={() => setHover(i)}
-                  onMouseLeave={() => setHover(null)}
-                  onClick={() => setHover(hover === i ? null : i)}
-                />
-                {/* selective direct labels: first, last, and a sparse cadence */}
                 {(d.day === 1 || d.day === byDay.length || d.day % labelEvery === 0) && (
                   <text x={x + slot / 2} y={H - 7} textAnchor="middle" fontSize={10} fill="var(--muted)">
                     {d.day}
@@ -164,11 +207,13 @@ export function DailySpendChart({
             );
           })}
 
+          <Grid max={yMax} y={y} x0={padL} x1={W - padR} />
+
           {/* the allowance: stepped through lived days, dashed at today's rate ahead */}
           {stepDays.length > 0 && (
             <path d={stepPath} fill="none" stroke="var(--foreground)" strokeWidth={1.5} opacity={0.55} />
           )}
-          {!monthDone && (
+          {!monthDone && safeNow > 0 && (
             <>
               <line
                 x1={safeX0}
@@ -181,34 +226,319 @@ export function DailySpendChart({
                 opacity={0.55}
               />
               <text x={W - padR} y={safeY - 5} textAnchor="end" fontSize={10} fill="var(--muted)">
-                {safeNow > 0 ? `${yen(safeNow)}/day stays on budget` : "budget spent"}
+                {yen(safeNow)}/day
               </text>
             </>
           )}
         </svg>
       )}
 
-      {hovered && (
-        <Tooltip x={((hover! + 0.5) / byDay.length) * 100}>
-          <div className="font-bold">
-            {hovered.date} · {yen(hovered.total)}
-          </div>
-          {Object.entries(hovered.byCategory).map(([cat, amt]) => (
-            <div key={cat} className="text-muted">
-              {categoryLabels[cat] ?? cat} {yen(amt)}
-            </div>
-          ))}
-          {hovered.total === 0 && <div className="text-muted">nothing logged</div>}
-          {hovered.day <= elapsedDays && (
-            <div className="text-muted">day&apos;s allowance was {yen(hovered.allowance)}</div>
+      {anySpend ? (
+        <Readout>
+          {selected && (
+            <>
+              <div className="flex items-baseline justify-between gap-2">
+                <span>{dayLabel(selected.date)}</span>
+                <span className="text-sm tabular-nums" style={{ color: selected.total > bigDayCut ? OVER : undefined }}>
+                  {yen(selected.total)}
+                  {selected.total > bigDayCut && <span className="ml-1 text-[0.7rem]">big day</span>}
+                </span>
+              </div>
+              {selected.total > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.7rem] text-muted">
+                  {Object.entries(selected.byCategory)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([cat, amt]) => (
+                      <span key={cat}>
+                        {categoryLabels[cat] ?? cat} <span className="tabular-nums">{yen(amt)}</span>
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <div className="mt-1 text-[0.7rem] text-muted">nothing logged</div>
+              )}
+              {selected.day <= elapsedDays && (
+                <div className="mt-0.5 text-[0.7rem] text-muted">allowance that day {yen(selected.allowance)}</div>
+              )}
+            </>
           )}
-        </Tooltip>
-      )}
-
-      {!anySpend && (
+        </Readout>
+      ) : (
         <p className="mt-1 text-center text-xs text-muted">
           No spend logged yet this month. Send a screenshot and it lands here.
         </p>
+      )}
+      {anySpend && <p className="mt-1 text-[0.65rem] text-muted">Tap or drag across the bars.</p>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------- running total vs budget */
+
+/**
+ * The month as a race against its budget: spend accumulates day by day against
+ * a straight line from zero to the monthly budget. Above the line is ahead of
+ * budget, below is behind it. A dashed tail carries typical days to month end.
+ */
+export function CumulativeSpendChart({
+  byDay,
+  budget,
+  elapsedDays,
+  typicalDailyRate,
+}: {
+  byDay: DayActual[];
+  budget: number;
+  elapsedDays: number;
+  typicalDailyRate: number;
+}) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const { ref, width } = useMeasuredWidth();
+
+  const days = byDay.length;
+  const lived = Math.min(elapsedDays, days);
+  const cum: number[] = [];
+  byDay.slice(0, lived).forEach((d, i) => cum.push((cum[i - 1] ?? 0) + d.total));
+  const spent = cum[lived - 1] ?? 0;
+  const projectedEnd = spent + typicalDailyRate * (days - lived);
+
+  const W = width || 0;
+  const H = 200;
+  const padL = 6;
+  const padR = 8;
+  const padT = 18;
+  const padB = 22;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const yMax = Math.max(budget, spent, projectedEnd, 1) * 1.08;
+  // x runs on day ends: day 1's total plots at the end of day 1.
+  const x = (dayEnd: number) => padL + (dayEnd / days) * plotW;
+  const y = (v: number) => padT + plotH - (v / yMax) * plotH;
+
+  const line = [`M${x(0)},${y(0)}`, ...cum.map((v, i) => `L${x(i + 1)},${y(v)}`)].join(" ");
+  const sel = picked !== null && picked < lived ? picked : lived - 1;
+  const pace = (i: number) => (budget * (i + 1)) / days;
+  const gap = sel >= 0 ? cum[sel] - pace(sel) : 0;
+
+  if (lived === 0) return null;
+
+  return (
+    <div ref={ref}>
+      {W === 0 ? (
+        <div style={{ height: H }} />
+      ) : (
+        <svg
+          width={W}
+          height={H}
+          role="img"
+          aria-label="Running total of spend this month against a straight budget pace"
+          {...scrubProps((px) => Math.round(((px - padL) / plotW) * days) - 1, lived, setPicked)}
+        >
+          <Grid max={yMax} y={y} x0={padL} x1={W - padR} />
+          <line x1={padL} x2={W - padR} y1={padT + plotH} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
+
+          {/* budget pace: zero on day one to the full budget on the last day */}
+          <line x1={x(0)} y1={y(0)} x2={x(days)} y2={y(budget)} stroke="var(--muted)" strokeWidth={1.5} strokeDasharray="4 3" />
+          <text x={x(days)} y={y(budget) - 8} textAnchor="end" fontSize={10} fill="var(--muted)" stroke="var(--background)" strokeWidth={3} paintOrder="stroke">
+            budget {yen(budget)}
+          </text>
+
+          {/* typical days carried to month end */}
+          {lived < days && (
+            <line
+              x1={x(lived)}
+              y1={y(spent)}
+              x2={x(days)}
+              y2={y(projectedEnd)}
+              stroke={ACCENT}
+              strokeWidth={2}
+              strokeDasharray="2 4"
+              strokeLinecap="round"
+              opacity={0.7}
+            />
+          )}
+
+          <path d={line} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+
+          {sel >= 0 && (
+            <>
+              <line x1={x(sel + 1)} x2={x(sel + 1)} y1={padT} y2={padT + plotH} stroke="var(--muted)" strokeWidth={1} opacity={0.5} />
+              <circle cx={x(sel + 1)} cy={y(pace(sel))} r={3.5} fill="var(--background)" stroke="var(--muted)" strokeWidth={1.5} />
+              <circle cx={x(sel + 1)} cy={y(cum[sel])} r={5} fill={ACCENT} stroke="var(--background)" strokeWidth={2} />
+            </>
+          )}
+
+          {[1, 8, 15, 22, days].map((d) => (
+            <text key={d} x={x(d - 0.5)} y={H - 7} textAnchor="middle" fontSize={10} fill="var(--muted)">
+              {d}
+            </text>
+          ))}
+        </svg>
+      )}
+
+      <Readout>
+        <div className="flex items-baseline justify-between gap-2">
+          <span>Through {dayLabel(byDay[sel].date)}</span>
+          <span className="text-sm tabular-nums">{yen(cum[sel])}</span>
+        </div>
+        <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[0.7rem]">
+          <span className="text-muted">budget pace {yen(pace(sel))}</span>
+          <span style={{ color: gap > 0 ? OVER : UNDER }}>
+            {gap > 0 ? `${yen(gap)} ahead of budget` : `${yen(-gap)} under budget`}
+          </span>
+        </div>
+        {lived < days && (
+          <div className="mt-0.5 text-[0.7rem] text-muted">Typical days from here end the month near {yen(projectedEnd)}.</div>
+        )}
+      </Readout>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- by day of week */
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** Average spend per weekday over the days lived this month, Monday first. */
+export function WeekdayChart({ byDay, elapsedDays }: { byDay: DayActual[]; elapsedDays: number }) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const { ref, width } = useMeasuredWidth();
+
+  const stats = WEEKDAYS.map(() => ({ total: 0, days: 0 }));
+  for (const d of byDay.slice(0, elapsedDays)) {
+    const [yy, mm, dd] = d.date.split("-").map(Number);
+    const wd = (new Date(yy, mm - 1, dd).getDay() + 6) % 7;
+    stats[wd].total += d.total;
+    stats[wd].days += 1;
+  }
+  const avg = stats.map((s) => (s.days ? s.total / s.days : 0));
+  const overall = avg.some((a) => a > 0) ? stats.reduce((s, x) => s + x.total, 0) / Math.max(1, elapsedDays) : 0;
+  const top = avg.indexOf(Math.max(...avg));
+
+  const W = width || 0;
+  const H = 170;
+  const padL = 6;
+  const padR = 6;
+  const padT = 20;
+  const padB = 22;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const yMax = Math.max(...avg, 1) * 1.12;
+  const slot = plotW / 7;
+  const barW = Math.min(36, slot - 8);
+  const y = (v: number) => padT + plotH - (v / yMax) * plotH;
+  const sel = picked ?? top;
+
+  if (overall === 0) return null;
+
+  return (
+    <div ref={ref}>
+      {W === 0 ? (
+        <div style={{ height: H }} />
+      ) : (
+        <svg
+          width={W}
+          height={H}
+          role="img"
+          aria-label="Average spend by day of the week"
+          {...scrubProps((px) => Math.floor((px - padL) / slot), 7, setPicked)}
+        >
+          <line x1={padL} x2={W - padR} y1={padT + plotH} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
+          {avg.map((a, i) => {
+            const cx = padL + i * slot + slot / 2;
+            const h = a > 0 ? Math.max(2, padT + plotH - y(a)) : 0;
+            return (
+              <g key={WEEKDAYS[i]}>
+                {h > 0 && (
+                  <rect
+                    x={cx - barW / 2}
+                    y={padT + plotH - h}
+                    width={barW}
+                    height={h}
+                    rx={4}
+                    fill={ACCENT}
+                    opacity={sel === i ? 1 : 0.7}
+                  />
+                )}
+                {i === top && (
+                  <text x={cx} y={y(a) - 5} textAnchor="middle" fontSize={10} fill="var(--foreground)">
+                    {yen(a)}
+                  </text>
+                )}
+                <text
+                  x={cx}
+                  y={H - 7}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill={sel === i ? "var(--foreground)" : "var(--muted)"}
+                >
+                  {WEEKDAYS[i]}
+                </text>
+              </g>
+            );
+          })}
+          <line x1={padL} x2={W - padR} y1={y(overall)} y2={y(overall)} stroke="var(--muted)" strokeWidth={1} strokeDasharray="3 3" />
+          <text x={W - padR} y={y(overall) - 4} textAnchor="end" fontSize={10} fill="var(--muted)">
+            avg {yen(overall)}
+          </text>
+        </svg>
+      )}
+      <Readout>
+        <div className="flex items-baseline justify-between gap-2">
+          <span>{WEEKDAYS[sel]}days</span>
+          <span className="text-sm tabular-nums">{yen(avg[sel])} avg</span>
+        </div>
+        <div className="mt-0.5 text-[0.7rem] text-muted">
+          {yen(stats[sel].total)} over {stats[sel].days} {stats[sel].days === 1 ? "day" : "days"} ·{" "}
+          {avg[sel] >= overall ? `${yen(avg[sel] - overall)} above` : `${yen(overall - avg[sel])} below`} the average day
+        </div>
+      </Readout>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- top spots */
+
+/** Where the money goes by vendor: total and visit count, biggest first. */
+export function TopSpots({ entries, limit = 6 }: { entries: SpendEntry[]; limit?: number }) {
+  const [showAll, setShowAll] = useState(false);
+  const byVendor = new Map<string, { total: number; visits: number }>();
+  for (const e of entries) {
+    if (!e.vendor) continue;
+    const v = byVendor.get(e.vendor) ?? { total: 0, visits: 0 };
+    v.total += e.amount;
+    v.visits += 1;
+    byVendor.set(e.vendor, v);
+  }
+  const ranked = [...byVendor.entries()].sort((a, b) => b[1].total - a[1].total);
+  if (ranked.length === 0) return null;
+  const shown = showAll ? ranked : ranked.slice(0, limit);
+  const max = ranked[0][1].total;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {shown.map(([name, v]) => (
+        <div key={name}>
+          <div className="flex items-baseline justify-between gap-2 text-xs">
+            <span className="truncate">
+              {name}
+              <span className="ml-1.5 text-[0.7rem] text-muted">
+                {v.visits}× · {yen(v.total / v.visits)} each
+              </span>
+            </span>
+            <span className="tabular-nums">{yen(v.total)}</span>
+          </div>
+          <div className="mt-1 h-2 w-full rounded-sm" style={{ background: "var(--moretransblack)" }}>
+            <div className="h-full rounded-sm" style={{ width: `${(v.total / max) * 100}%`, background: ACCENT }} />
+          </div>
+        </div>
+      ))}
+      {ranked.length > limit && (
+        <button
+          onClick={() => setShowAll((s) => !s)}
+          className="self-start py-1 text-[0.7rem] text-muted underline decoration-[var(--ice-rest)]"
+        >
+          {showAll ? "Show fewer" : `Show all ${ranked.length}`}
+        </button>
       )}
     </div>
   );
@@ -252,7 +582,7 @@ export function CategoryBars({ groups }: { groups: GroupActual[] }) {
           </div>
         );
       })}
-      <p className="text-[0.7rem] text-muted">Vertical tick marks the monthly budget for that group.</p>
+      <p className="text-[0.7rem] text-muted">The tick marks each group&apos;s monthly budget.</p>
     </div>
   );
 }
@@ -264,75 +594,78 @@ export function BalancePlanChart({
 }: {
   series: { date: string; label: string; plan: number }[];
 }) {
-  const [hover, setHover] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const { ref, width } = useMeasuredWidth();
 
   const W = width || 0;
   const narrow = W > 0 && W < 460;
-  const H = narrow ? 170 : 190;
+  const H = narrow ? 180 : 190;
   const padL = 8;
   const padR = 8;
-  const padT = 16;
+  const padT = 18;
   const padB = 24;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  const yMax = Math.max(...series.map((s) => s.plan)) * 1.1;
+  const yMax = Math.max(...series.map((s) => s.plan), 1) * 1.15;
   const x = (i: number) => padL + (i / (series.length - 1)) * plotW;
-  const y = (v: number) => padT + plotH - (v / yMax) * plotH;
+  const y = (v: number) => padT + plotH - (Math.max(0, v) / yMax) * plotH;
 
   const path = series.map((s, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(s.plan)}`).join(" ");
-  const hovered = hover === null ? null : series[hover];
+  const area = `${path} L${x(series.length - 1)},${padT + plotH} L${x(0)},${padT + plotH} Z`;
+  const sel = picked ?? series.length - 1;
+  const selected = series[sel];
   const labelStride = narrow && series.length > 6 ? 2 : 1;
+  const last = series.length - 1;
 
   return (
-    <div className="relative" ref={ref}>
+    <div ref={ref}>
       {W === 0 ? (
         <div style={{ height: H }} />
       ) : (
-        <svg width={W} height={H} role="img" aria-label="Planned balance by salary month">
+        <svg
+          width={W}
+          height={H}
+          role="img"
+          aria-label="Planned balance by salary month"
+          {...scrubProps((px) => Math.round(((px - padL) / plotW) * last), series.length, setPicked)}
+        >
+          <Grid max={yMax} y={y} x0={padL} x1={W - padR} />
           <line x1={padL} x2={W - padR} y1={padT + plotH} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
+          <path d={area} fill={ACCENT} opacity={0.1} />
           <path d={path} fill="none" stroke={ACCENT} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          {sel !== last && (
+            <line x1={x(sel)} x2={x(sel)} y1={padT} y2={padT + plotH} stroke="var(--muted)" strokeWidth={1} opacity={0.5} />
+          )}
 
           {series.map((s, i) => (
             <g key={s.date}>
-              {hover === i && (
-                <line x1={x(i)} x2={x(i)} y1={padT} y2={padT + plotH} stroke="var(--muted)" strokeWidth={1} opacity={0.5} />
-              )}
-              <circle
-                cx={x(i)}
-                cy={y(s.plan)}
-                r={hover === i ? 5 : 3.5}
-                fill={ACCENT}
-                stroke="var(--background)"
-                strokeWidth={2}
-              />
-              <rect
-                x={x(i) - plotW / (series.length * 2)}
-                y={padT}
-                width={plotW / series.length}
-                height={plotH}
-                fill="transparent"
-                onMouseEnter={() => setHover(i)}
-                onMouseLeave={() => setHover(null)}
-                onClick={() => setHover(hover === i ? null : i)}
-              />
+              <circle cx={x(i)} cy={y(s.plan)} r={sel === i ? 5 : 3.5} fill={ACCENT} stroke="var(--background)" strokeWidth={2} />
               {i % labelStride === 0 && (
-                <text x={x(i)} y={H - 7} textAnchor="middle" fontSize={10} fill="var(--muted)">
+                <text x={x(i)} y={H - 7} textAnchor={i === 0 ? "start" : i === last ? "end" : "middle"} fontSize={10} fill="var(--muted)">
                   {s.label}
                 </text>
               )}
             </g>
           ))}
+          <text x={x(last)} y={y(series[last].plan) - 10} textAnchor="end" fontSize={10} fill="var(--foreground)">
+            {yen(series[last].plan)}
+          </text>
         </svg>
       )}
 
-      {hovered && (
-        <Tooltip x={((hover! + 0.5) / series.length) * 100}>
-          <div className="font-bold">{yen(hovered.plan)}</div>
-          <div className="text-muted">planned, after {hovered.date}</div>
-        </Tooltip>
-      )}
+      <Readout>
+        <div className="flex items-baseline justify-between gap-2">
+          <span>After the {selected.date} paycheque</span>
+          <span className="text-sm tabular-nums">{yen(selected.plan)}</span>
+        </div>
+        {sel > 0 && (
+          <div className="mt-0.5 text-[0.7rem] text-muted">
+            {selected.plan >= series[sel - 1].plan ? "+" : "−"}
+            {yen(Math.abs(selected.plan - series[sel - 1].plan))} on the month before
+          </div>
+        )}
+      </Readout>
     </div>
   );
 }
@@ -346,12 +679,12 @@ export function MonthlyProjectionChart({
   months: MonthProjection[];
   budget: number;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const { ref, width } = useMeasuredWidth();
 
   const W = width || 0;
   const narrow = W > 0 && W < 460;
-  const H = narrow ? 190 : 210;
+  const H = narrow ? 200 : 210;
   const padL = 6;
   const padR = 6;
   const padT = 16;
@@ -366,14 +699,23 @@ export function MonthlyProjectionChart({
   const barW = Math.min(46, Math.max(10, slot - 10));
   const y = (v: number) => padT + plotH - (Math.min(v, yMax) / yMax) * plotH;
   const budgetY = y(budget);
-  const hovered = hover === null ? null : months[hover];
+  // Until a tap, the readout shows the first month still being projected.
+  const firstCounted = months.findIndex((m) => m.counted);
+  const hover = picked ?? (firstCounted >= 0 ? firstCounted : 0);
+  const hovered = months[hover];
 
   return (
-    <div className="relative" ref={ref}>
+    <div ref={ref}>
       {W === 0 ? (
         <div style={{ height: H }} />
       ) : (
-        <svg width={W} height={H} role="img" aria-label="Projected living cost by month against budget">
+        <svg
+          width={W}
+          height={H}
+          role="img"
+          aria-label="Projected living cost by month against budget"
+          {...scrubProps((px) => Math.floor((px - padL) / slot), months.length, setPicked)}
+        >
           {months.map((m, i) => {
             const cx = padL + i * slot + slot / 2;
             const x = cx - barW / 2;
@@ -384,7 +726,7 @@ export function MonthlyProjectionChart({
             const projTop = y(m.projected);
             const base = padT + plotH;
             const fill = !m.counted ? "var(--muted)" : over ? OVER : ACCENT;
-            const dim = hover !== null && hover !== i ? 0.4 : 1;
+            const dim = hover !== i ? 0.55 : 1;
             const whisker = m.counted && m.projectedHigh > m.projected + 1;
 
             return (
@@ -415,16 +757,6 @@ export function MonthlyProjectionChart({
                     </>
                   );
                 })()}
-                <rect
-                  x={padL + i * slot}
-                  y={padT}
-                  width={slot}
-                  height={plotH}
-                  fill="transparent"
-                  onMouseEnter={() => setHover(i)}
-                  onMouseLeave={() => setHover(null)}
-                  onClick={() => setHover(hover === i ? null : i)}
-                />
                 <text x={cx} y={H - 17} textAnchor="middle" fontSize={10} fill="var(--muted)">
                   {m.label.slice(0, 3)}
                 </text>
@@ -446,25 +778,27 @@ export function MonthlyProjectionChart({
       )}
 
       {hovered && (
-        <Tooltip x={((hover! + 0.5) / months.length) * 100}>
-          <div className="font-bold">{hovered.label}</div>
-          {hovered.counted ? (
-            <>
-              {hovered.actual > 0 && <div className="text-muted">logged so far {yen(hovered.actual)}</div>}
-              <div className="text-muted">typical days {yen(hovered.projected)}</div>
-              {hovered.projectedHigh > hovered.projected + 1 && (
-                <div className="text-muted">with big days {yen(hovered.projectedHigh)}</div>
-              )}
-              <div style={{ color: hovered.overUnder > 0 ? OVER : "var(--green)" }}>
+        <Readout>
+          <div className="flex items-baseline justify-between gap-2">
+            <span>{hovered.label}</span>
+            {hovered.counted && (
+              <span className="text-sm tabular-nums" style={{ color: hovered.overUnder > 0 ? OVER : UNDER }}>
                 {hovered.overUnder > 0 ? `${yen(hovered.overUnder)} over` : `${yen(-hovered.overUnder)} under`}
-              </div>
-            </>
+              </span>
+            )}
+          </div>
+          {hovered.counted ? (
+            <div className="mt-0.5 flex flex-wrap gap-x-3 text-[0.7rem] text-muted">
+              {hovered.actual > 0 && <span>logged {yen(hovered.actual)}</span>}
+              <span>typical days {yen(hovered.projected)}</span>
+              {hovered.projectedHigh > hovered.projected + 1 && <span>with big days {yen(hovered.projectedHigh)}</span>}
+            </div>
           ) : (
-            <div className="text-muted">
+            <div className="mt-0.5 text-[0.7rem] text-muted">
               {yen(hovered.actual)} logged on {hovered.loggedDays} of {hovered.elapsedDays} days, not projected
             </div>
           )}
-        </Tooltip>
+        </Readout>
       )}
     </div>
   );
@@ -557,7 +891,7 @@ export function CategoryDonut({
     return <p className="text-[0.72rem] text-muted">Nothing logged {caption.toLowerCase()}.</p>;
   }
 
-  const S = 148;
+  const S = 160;
   const c = S / 2;
   const rOuter = c - 2;
   const rInner = rOuter * 0.6;
@@ -583,7 +917,7 @@ export function CategoryDonut({
         height={S}
         role="img"
         aria-label={`${caption}: ${shares.map((s) => `${s.label} ${Math.round(s.pct * 100)}%`).join(", ")}`}
-        onMouseLeave={() => setHover(null)}
+        onPointerLeave={(e) => e.pointerType === "mouse" && setHover(null)}
       >
         {arcs.map((a, i) =>
           // A lone category fills the ring, where the arc command degenerates.
@@ -603,7 +937,8 @@ export function CategoryDonut({
               d={arcPath(c, c, rOuter, rInner, a.a0, a.a1)}
               fill={sliceFill(i, shares.length, a.share.other)}
               opacity={hover === null || hover === i ? 1 : 0.45}
-              onMouseEnter={() => setHover(i)}
+              onPointerEnter={(e) => e.pointerType === "mouse" && setHover(i)}
+              onClick={() => setHover(hover === i ? null : i)}
             />
           ),
         )}
@@ -620,11 +955,13 @@ export function CategoryDonut({
           drops below the donut on a phone rather than squeezing in beside it. */}
       <div className="min-w-[15rem] flex-1">
         {shares.map((s, i) => (
-          <div
+          <button
             key={s.id}
-            className="flex items-baseline gap-2 py-0.5 text-xs"
-            onMouseEnter={() => setHover(i)}
-            onMouseLeave={() => setHover(null)}
+            className={`flex w-full items-baseline gap-2 rounded-sm px-1 py-1.5 text-left text-xs ${hover === i ? "bg-[var(--moretransblack)]" : ""}`}
+            onPointerEnter={(e) => e.pointerType === "mouse" && setHover(i)}
+            onPointerLeave={(e) => e.pointerType === "mouse" && setHover(null)}
+            onClick={() => setHover(hover === i ? null : i)}
+            aria-pressed={hover === i}
           >
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
@@ -634,7 +971,7 @@ export function CategoryDonut({
             <span className="flex-1 truncate">{s.label}</span>
             <span className="tabular-nums">{yen(s.amount)}</span>
             <span className="w-9 text-right text-muted tabular-nums">{Math.round(s.pct * 100)}%</span>
-          </div>
+          </button>
         ))}
       </div>
     </div>

@@ -22,7 +22,15 @@ import {
   type DisplayCurrency,
   type Ledger,
 } from "@/lib/money";
-import { BalancePlanChart, CategoryBars, CategoryDonut, DailySpendChart } from "./charts";
+import {
+  BalancePlanChart,
+  CategoryBars,
+  CategoryDonut,
+  CumulativeSpendChart,
+  DailySpendChart,
+  TopSpots,
+  WeekdayChart,
+} from "./charts";
 import { BudgetPlan } from "./BudgetPlan";
 import { SpendProjection } from "./SpendProjection";
 import { BudgetAdmin } from "./BudgetAdmin";
@@ -125,6 +133,16 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
     window.scrollTo({ top: 0 });
   };
 
+  // The site nav is sticky too, so the tab bar pins just beneath it.
+  const [navOffset, setNavOffset] = useState(0);
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>(".site-nav");
+    if (!nav) return;
+    const ro = new ResizeObserver(() => setNavOffset(nav.offsetHeight));
+    ro.observe(nav);
+    return () => ro.disconnect();
+  }, []);
+
   // View-only currency. Rates load once on unlock; until they arrive (or if the
   // fetch fails) the page stays in yen.
   const [currency, setCurrency] = useState<DisplayCurrency>("JPY");
@@ -193,7 +211,11 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
       )}
 
       {/* ---- tabs ---- */}
-      <nav className="sticky top-0 z-10 -mx-4 mt-4 flex border-b border-border bg-background px-4 text-xs" aria-label="Money sections">
+      <nav
+        className="sticky z-40 -mx-4 mt-4 flex border-b border-border bg-background px-4 text-xs"
+        style={{ top: navOffset }}
+        aria-label="Money sections"
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -354,9 +376,23 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         );
       })()}
 
+      {view.spent > 0 && (
+        <Section
+          title="Running total"
+          note="Spend adds up day by day against a straight line from zero to the month's budget. Above the dashed line is ahead of budget. The dotted tail carries typical days to month end."
+        >
+          <CumulativeSpendChart
+            byDay={view.byDay}
+            budget={view.budget}
+            elapsedDays={view.elapsedDays}
+            typicalDailyRate={projection.basis.typicalDailyRate}
+          />
+        </Section>
+      )}
+
       <Section
         title="Daily spend"
-        note={`Bars turn red on big days, past twice the ${yen(projection.basis.typicalDailyRate)} typical day. The stepped line is the adaptive daily budget: what each day could carry, given the spending before it. Days that blow past the scale are clipped and labeled.`}
+        note={`Bars turn red on big days, past twice the ${yen(projection.basis.typicalDailyRate)} typical day. The stepped line is the adaptive daily budget: what each day could carry, given the spending before it. Days past the scale are clipped. Tap one for its total.`}
       >
         <DailySpendChart
           byDay={view.byDay}
@@ -375,6 +411,17 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
       <Section title="By category" note="Food, phone, transport are the live ones. Other is the sheet's remainder.">
         <CategoryBars groups={view.groups} />
       </Section>
+
+      {view.spent > 0 && (
+        <>
+          <Section title="By weekday" note="Average spend on each day of the week this month. The dashed line is the average day.">
+            <WeekdayChart byDay={view.byDay} elapsedDays={view.elapsedDays} />
+          </Section>
+          <Section title="Top spots" note="Spend by vendor this month, with visit count and the average per visit.">
+            <TopSpots entries={view.entries} />
+          </Section>
+        </>
+      )}
 
       {view.spent > 0 && (
         <Section
