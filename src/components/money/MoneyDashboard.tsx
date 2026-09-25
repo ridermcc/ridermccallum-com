@@ -5,39 +5,33 @@ import {
   applyOverrides,
   availableMonths,
   balanceSeries,
-  buildMonthView,
   buildInsights,
+  buildMonthView,
   buildPlan,
   buildWeeks,
+  defaultCaps,
   DISPLAY_CURRENCIES,
   fetchDisplayRates,
-  fxIsStale,
   hasOverrides,
   monthKey,
   planProgress,
   projectSeason,
   setDisplayCurrency,
   todayISO,
-  toCAD,
-  yen,
   type BudgetOverrides,
+  type Cap,
+  type Category,
   type DisplayCurrency,
   type Ledger,
+  type SpendEntry,
 } from "@/lib/money";
-import {
-  BalancePlanChart,
-  CategoryBars,
-  CategoryDonut,
-  CumulativeSpendChart,
-  DailySpendChart,
-  TopSpots,
-  WeekdayChart,
-} from "./charts";
 import { BudgetPlan } from "./BudgetPlan";
 import { SpendProjection } from "./SpendProjection";
 import { BudgetAdmin } from "./BudgetAdmin";
 import { Entries } from "./Entries";
-import { WeekTab } from "./WeekTab";
+import { NowTab } from "./NowTab";
+import { QuickAdd } from "./QuickAdd";
+import { TrendsTab, type Period } from "./TrendsTab";
 
 const OVERRIDES_KEY = "money:budget-overrides";
 
@@ -73,14 +67,35 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 }
 
 const TABS = [
-  { id: "week", label: "Week" },
-  { id: "month", label: "Month" },
-  { id: "spending", label: "Spend" },
-  { id: "entries", label: "Entries" },
-  { id: "plan", label: "Plan" },
-  { id: "admin", label: "Admin" },
+  { id: "now", label: "Now" },
+  { id: "trends", label: "Trends" },
+  { id: "ledger", label: "Ledger" },
 ] as const;
-type Tab = (typeof TABS)[number]["id"];
+// Settings is reached from the gear, not the tab bar: it is set-and-forget.
+type Tab = (typeof TABS)[number]["id"] | "settings";
+const TAB_IDS: Tab[] = ["now", "trends", "ledger", "settings"];
+
+const PENDING_KEY = "money:pending";
+const CAPS_KEY = "money:caps";
+
+/** Read a JSON value from this device's storage, falling back when it is missing or unreadable. */
+function stored<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function persist(key: string, value: unknown) {
+  try {
+    if (value === null || (Array.isArray(value) && value.length === 0)) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Private windows and blocked site data: changes still apply this session.
+  }
+}
 
 export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () => void }) {
   const today = todayISO();
@@ -91,28 +106,32 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   // Read on the first render, not in an effect: this component only ever mounts
   // after the passphrase gate has unlocked, so there is no server render to
   // mismatch against.
-  const [overrides, setOverrides] = useState<BudgetOverrides>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(OVERRIDES_KEY) ?? "{}") as BudgetOverrides;
-    } catch {
-      // A malformed or unreadable store is not worth blocking the page for.
-      return {};
-    }
-  });
+  const [overrides, setOverrides] = useState<BudgetOverrides>(() => stored<BudgetOverrides>(OVERRIDES_KEY, {}));
+  useEffect(() => persist(OVERRIDES_KEY, hasOverrides(overrides) ? overrides : null), [overrides]);
 
-  useEffect(() => {
-    try {
-      if (hasOverrides(overrides)) localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
-      else localStorage.removeItem(OVERRIDES_KEY);
-    } catch {
-      // Private windows and blocked site data: the edits still apply this session.
-    }
-  }, [overrides]);
+  // Entries added on this phone. They count everywhere at once and drop off by
+  // id once the published ledger carries them.
+  const [pendingAll, setPending] = useState<SpendEntry[]>(() => stored<SpendEntry[]>(PENDING_KEY, []));
+  const pending = useMemo(() => {
+    const published = new Set(ledger.spend.map((e) => e.id));
+    return pendingAll.filter((e) => !published.has(e.id));
+  }, [pendingAll, ledger]);
+  useEffect(() => persist(PENDING_KEY, pending), [pending]);
 
   const working = useMemo<Ledger>(
-    () => ({ ...ledger, budget: applyOverrides(ledger.budget, overrides) }),
-    [ledger, overrides]
+    () => ({
+      ...ledger,
+      budget: applyOverrides(ledger.budget, overrides),
+      spend: [...ledger.spend, ...pending].sort((a, b) => (a.date === b.date ? a.id.localeCompare(b.id) : a.date.localeCompare(b.date))),
+    }),
+    [ledger, overrides, pending]
   );
+
+  // Caps are this device's choice. Null means "use the defaults", which follow
+  // the last four weeks until the first edit pins them.
+  const [capsSaved, setCaps] = useState<Cap[] | null>(() => stored<Cap[] | null>(CAPS_KEY, null));
+  useEffect(() => persist(CAPS_KEY, capsSaved), [capsSaved]);
+  const caps = useMemo(() => capsSaved ?? defaultCaps(working, today), [capsSaved, working, today]);
 
   const months = useMemo(() => availableMonths(working, today), [working, today]);
   const [selected, setSelected] = useState(() =>
@@ -125,17 +144,17 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   const progress = useMemo(() => planProgress(working, today), [working, today]);
   const projection = useMemo(() => projectSeason(working, today), [working, today]);
 
-  // The page is split into tabs so a phone shows one screen of numbers at a
-  // time. The tab rides in the URL hash so a refresh lands back on it.
+  // The tab rides in the URL hash so a refresh lands back on it.
   const [tab, setTabState] = useState<Tab>(() => {
-    const h = window.location.hash.slice(1);
-    return TABS.some((t) => t.id === h) ? (h as Tab) : "week";
+    const h = window.location.hash.slice(1) as Tab;
+    return TAB_IDS.includes(h) ? h : "now";
   });
   const setTab = (t: Tab) => {
     setTabState(t);
     history.replaceState(null, "", `#${t}`);
     window.scrollTo({ top: 0 });
   };
+  const [period, setPeriod] = useState<Period>("week");
 
   // The site nav is sticky too, so the tab bar pins just beneath it.
   const [navOffset, setNavOffset] = useState(0);
@@ -159,12 +178,8 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   setDisplayCurrency(fx && currency !== "JPY" ? currency : "JPY", fx && currency !== "JPY" ? fx.rates[currency] : 1);
   const converted = fx !== null && currency !== "JPY";
 
+  const weeks = useMemo(() => buildWeeks(working, today, projection.basis.typicalDailyRate), [working, today, projection]);
   // Insight copy is formatted text, so it rebuilds when the display currency changes.
-  const weeks = useMemo(
-    () => buildWeeks(working, today, projection.basis.typicalDailyRate),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [working, today, projection, currency, fx],
-  );
   const insights = useMemo(
     () => buildInsights(working, weeks, projection.basis.typicalDailyRate, today),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,27 +189,15 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   const budget = working.budget;
   const edited = hasOverrides(overrides);
   const rate = budget.meta.fx.CAD_JPY;
-  const stale = fxIsStale(budget, today);
   const categoryLabels = Object.fromEntries(budget.categories.map((c) => [c.id, c.label]));
-
   const idx = months.indexOf(selected);
-  const paceDelta = view.spent - view.budget * view.monthProgress;
-
-  // Share-of-spend inputs. The day donut follows the last day that actually
-  // carries an entry, not the calendar day: on a morning with nothing logged
-  // yet, an empty ring says less than yesterday's split does.
-  const monthByCategory = view.entries.reduce<Record<string, number>>((acc, e) => {
-    acc[e.category] = (acc[e.category] ?? 0) + e.amount;
-    return acc;
-  }, {});
-  const lastLogged = [...view.byDay].reverse().find((d) => d.total > 0) ?? null;
 
   return (
     <div className="pb-16">
       {/* ---- header ---- */}
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg">Money</h1>
-        <div className="flex items-baseline gap-3 text-xs">
+        <div className="flex items-center gap-2 text-xs">
           <div className="flex gap-1" role="group" aria-label="Display currency">
             {DISPLAY_CURRENCIES.map((c) => (
               <button
@@ -202,33 +205,40 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
                 onClick={() => setCurrency(c)}
                 disabled={c !== "JPY" && !fx}
                 aria-pressed={currency === c}
-                className={`rounded border px-1.5 py-0.5 disabled:opacity-30 ${currency === c ? "border-foreground" : "border-border text-muted"}`}
+                className={`rounded border px-1.5 py-1 disabled:opacity-30 ${currency === c ? "border-foreground" : "border-border text-muted"}`}
               >
                 {c}
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setTab(tab === "settings" ? "now" : "settings")}
+            aria-label="Settings"
+            aria-pressed={tab === "settings"}
+            className={`flex h-8 w-8 items-center justify-center rounded border text-base ${tab === "settings" ? "border-foreground" : "border-border text-muted"}`}
+          >
+            ⚙
+          </button>
           <button onClick={onLock} className="text-xs text-muted underline decoration-[var(--ice-rest)] hover:decoration-[var(--ice-hover)]">
-          lock
+            lock
           </button>
         </div>
       </div>
-      <p className="mt-1 text-xs text-muted">{budget.period.label}</p>
       {converted && (
         <p className="mt-1 text-[0.7rem] text-muted">
-          Viewing in {currency} at 1 {currency} = ¥{(1 / fx.rates[currency]).toFixed(2)} (ECB rate, {fx.date}). Ledger stays in yen.
+          In {currency} at 1 {currency} = ¥{(1 / fx.rates[currency]).toFixed(2)} (ECB, {fx.date}). Ledger stays in yen.
         </p>
       )}
       {fxError && <p className="mt-1 text-[0.7rem] text-muted">Live rates unavailable. Showing yen.</p>}
       {edited && (
         <p className="mt-2 rounded border px-2 py-1 text-[0.7rem]" style={{ borderColor: "var(--yellow)", color: "var(--yellow)" }}>
-          Showing your edited budget, not the published one. Reset it in Budget admin below.
+          Showing your edited budget, not the published one. Reset it under the gear.
         </p>
       )}
 
       {/* ---- tabs ---- */}
       <nav
-        className="sticky z-40 -mx-4 mt-4 flex border-b border-border bg-background px-4 text-xs"
+        className="sticky z-40 -mx-4 mt-3 flex border-b border-border bg-background px-4 text-sm"
         style={{ top: navOffset }}
         aria-label="Money sections"
       >
@@ -237,309 +247,176 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
             key={t.id}
             onClick={() => setTab(t.id)}
             aria-current={tab === t.id ? "page" : undefined}
-            className={`-mb-px flex-1 border-b-2 px-0.5 py-3 ${tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted"}`}
+            className={`-mb-px flex-1 border-b-2 py-3 ${tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted"}`}
           >
             {t.label}
           </button>
         ))}
       </nav>
 
-      {/* ---- month switcher: only on the tabs that read one month ---- */}
-      {(tab === "month" || tab === "spending" || tab === "entries") && (
-        <div className="mt-3 flex items-center justify-between text-sm">
-          <button
-            onClick={() => setSelected(months[idx + 1])}
-            disabled={idx >= months.length - 1}
-            className="flex h-10 w-10 items-center justify-center rounded border border-border disabled:opacity-30"
-            aria-label="Previous month"
-          >
-            ←
-          </button>
-          <span className="text-center">
-            {view.label}
-            {view.isCurrentMonth && (
-              <span className="block text-[0.7rem] text-muted">
-                day {view.elapsedDays} of {view.days}
-              </span>
-            )}
-          </span>
-          <button
-            onClick={() => setSelected(months[idx - 1])}
-            disabled={idx <= 0}
-            className="flex h-10 w-10 items-center justify-center rounded border border-border disabled:opacity-30"
-            aria-label="Next month"
-          >
-            →
-          </button>
-        </div>
-      )}
-
-      {tab === "week" && (
-        <WeekTab
+      {tab === "now" && (
+        <NowTab
           weeks={weeks}
           insights={insights}
-          categoryLabels={categoryLabels}
+          caps={caps}
+          spend={working.spend}
+          today={today}
           typicalDailyRate={projection.basis.typicalDailyRate}
+          onEditCaps={() => setTab("settings")}
+          onSeeWeeks={() => {
+            setPeriod("week");
+            setTab("trends");
+          }}
         />
       )}
 
-      {tab === "month" && (
-        <>
-
-      {/* ---- hero ---- */}
-      <div className="mt-6 rounded border border-border p-4">
-        <div className="text-[0.7rem] tracking-wide text-muted uppercase">Spent this month</div>
-        <div className="mt-1 flex items-baseline gap-3">
-          <span className="text-4xl">{yen(view.spent)}</span>
-          <span className="text-sm text-muted">of {yen(view.budget)}</span>
-        </div>
-        <div className="mt-1 text-xs text-muted">
-          {converted ? `¥${Math.round(view.spent).toLocaleString("en-US")}` : toCAD(view.spent, rate)}
-          {stale && <span className="ml-2" style={{ color: "var(--yellow)" }}>FX rate is stale</span>}
-        </div>
-
-        {/* budget meter: month progress sits behind spend so pace is readable at a glance */}
-        <div className="relative mt-4 h-3 w-full rounded-sm" style={{ background: "var(--moretransblack)" }}>
-          <div
-            className="absolute inset-y-0 left-0 rounded-sm"
-            style={{
-              width: `${Math.min(100, view.pctOfBudget * 100)}%`,
-              background: view.onPace ? "var(--accent)" : "var(--red)",
-            }}
-          />
-          <div
-            className="absolute inset-y-[-3px] w-px"
-            style={{ left: `${Math.min(100, view.monthProgress * 100)}%`, background: "var(--foreground)" }}
-            aria-hidden
-          />
-        </div>
-        <div className="mt-2 flex justify-between text-[0.7rem] text-muted">
-          <span>
-            {Math.round(view.pctOfBudget * 100)}% of budget · {Math.round(view.monthProgress * 100)}% of month
-          </span>
-          <span style={{ color: view.onPace ? "var(--green)" : "var(--red)" }}>
-            {view.spent === 0
-              ? "nothing logged"
-              : view.onPace
-                ? `on pace, ${yen(Math.abs(paceDelta))} under`
-                : `over pace by ${yen(paceDelta)}`}
-          </span>
-        </div>
-      </div>
-
-      {view.isPartial && view.spent > 0 && (
-        <p className="mt-2 text-[0.7rem] leading-relaxed" style={{ color: "var(--yellow)" }}>
-          Only {view.loggedDays} of {view.elapsedDays} elapsed days have entries. Totals, pace and projection all
-          understate the real spend for this month.
-        </p>
-      )}
-
-      {/* ---- today's number: the adaptive daily budget ---- */}
-      {view.isCurrentMonth && view.elapsedDays < view.days && (
-        <div className="mt-4 rounded border border-border p-4">
-          <div className="text-[0.7rem] tracking-wide text-muted uppercase">To stay on track</div>
-          {view.remaining > 0 ? (
-            <>
-              <div className="mt-1 flex items-baseline gap-3">
-                <span className="text-2xl tabular-nums">{yen(view.safePerDay)}</span>
-                <span className="text-sm text-muted">a day for the {view.days - view.elapsedDays} days left</span>
-              </div>
-              <p className="mt-1 text-[0.72rem] text-muted">Typical day so far: {yen(projection.basis.typicalDailyRate)}</p>
-            </>
-          ) : (
-            <>
-              <div className="mt-1 flex items-baseline gap-3">
-                <span className="text-2xl tabular-nums">{yen(-view.remaining)}</span>
-                <span className="text-sm text-muted">over budget</span>
-              </div>
-              <p className="mt-1 text-[0.72rem] text-muted">
-                Typical days from here end the month about{" "}
-                {yen(-view.remaining + projection.basis.typicalDailyRate * (view.days - view.elapsedDays))} over.
-              </p>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ---- stat row ---- */}
-      <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-        {[
-          { label: "Left this month", value: yen(Math.max(0, view.remaining)) },
-          { label: "Daily pace", value: yen(view.dailyPaceActual) },
-          { label: "Typical day", value: yen(projection.basis.typicalDailyRate) },
-        ].map((s) => (
-          <div key={s.label} className="rounded border border-border p-2">
-            <div className="text-sm">{s.value}</div>
-            <div className="mt-0.5 text-[0.65rem] text-muted">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {view.spent > 0 && view.isCurrentMonth && view.elapsedDays < view.days && (() => {
-        // A range, not a verdict: logged spend plus typical days to month end,
-        // bracketed by the all-in average that the big days drag upward.
-        const remainingDays = view.days - view.elapsedDays;
-        const low = view.spent + projection.basis.typicalDailyRate * remainingDays;
-        const high = view.spent + projection.basis.dailyRate * remainingDays;
-        const lowDelta = low - view.budget;
-        return (
-          <Section title="Month-end projection" note="Logged spend plus typical days ahead; the second figure adds big days at their current pace.">
-            <div className="rounded border border-border p-3 text-sm">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <span className="tabular-nums">
-                  {yen(low)}
-                  {high > low + 1 && <span className="text-muted"> to {yen(high)}</span>}
-                </span>
-                <span style={{ color: lowDelta > 0 ? "var(--red)" : "var(--green)" }}>
-                  {lowDelta > 0 ? `${yen(lowDelta)} over budget` : `${yen(Math.abs(lowDelta))} under budget`}
-                  {high > low + 1 && " on typical days"}
-                </span>
-              </div>
-              <p className="mt-1 text-[0.7rem] text-muted">{toCAD(low, rate)} at {rate} JPY per CAD</p>
-            </div>
-          </Section>
-        );
-      })()}
-
-      {view.spent > 0 && (
-        <Section
-          title="Running total"
-          note="Spend adds up day by day against a straight line from zero to the month's budget. Above the dashed line is ahead of budget. The dotted tail carries typical days to month end."
-        >
-          <CumulativeSpendChart
-            byDay={view.byDay}
-            budget={view.budget}
-            elapsedDays={view.elapsedDays}
-            typicalDailyRate={projection.basis.typicalDailyRate}
-          />
-        </Section>
-      )}
-
-      <Section
-        title="Daily spend"
-        note={`Bars turn red on big days, past twice the ${yen(projection.basis.typicalDailyRate)} typical day. The stepped line is the adaptive daily budget: what each day could carry, given the spending before it. Days past the scale are clipped. Tap one for its total.`}
-      >
-        <DailySpendChart
-          byDay={view.byDay}
-          dailyBudget={view.dailyBudget}
-          typicalDailyRate={projection.basis.typicalDailyRate}
+      {tab === "trends" && (
+        <TrendsTab
+          period={period}
+          setPeriod={setPeriod}
+          weeks={weeks}
+          view={view}
+          monthNav={{
+            prev: idx < months.length - 1 ? () => setSelected(months[idx + 1]) : undefined,
+            next: idx > 0 ? () => setSelected(months[idx - 1]) : undefined,
+          }}
+          projection={projection}
+          plan={plan}
+          balance={balance}
           categoryLabels={categoryLabels}
-          elapsedDays={view.elapsedDays}
         />
-      </Section>
-
-        </>
       )}
 
-      {tab === "spending" && (
+      {tab === "ledger" && (
         <>
-      <Section title="By category" note="Food, phone, transport are the live ones. Other is the sheet's remainder.">
-        <CategoryBars groups={view.groups} />
-      </Section>
-
-      {view.spent > 0 && (
-        <>
-          <Section title="By weekday" note="Average spend on each day of the week this month. The dashed line is the average day.">
-            <WeekdayChart byDay={view.byDay} elapsedDays={view.elapsedDays} />
-          </Section>
-          <Section title="Top spots" note="Spend by vendor this month, with visit count and the average per visit.">
-            <TopSpots entries={view.entries} />
-          </Section>
-        </>
-      )}
-
-      {view.spent > 0 && (
-        <Section
-          title="Where it goes"
-          note="Share of spend by category. Slices run biggest to smallest, darkest to lightest; a small tail folds into Other."
-        >
-          <div className="flex flex-col gap-6">
-            {lastLogged && (
-              <CategoryDonut
-                byCategory={lastLogged.byCategory}
-                categoryLabels={categoryLabels}
-                total={lastLogged.total}
-                caption={lastLogged.date === today ? "Today" : lastLogged.date.slice(5)}
-              />
-            )}
-            <CategoryDonut
-              byCategory={monthByCategory}
-              categoryLabels={categoryLabels}
-              total={view.spent}
-              caption={view.label}
-            />
-          </div>
-        </Section>
-      )}
-
-
-
-        </>
-      )}
-
-      {tab === "entries" &&
-        (view.entries.length > 0 ? (
+          <QuickAdd
+            spend={working.spend}
+            pending={pending}
+            categories={budget.categories}
+            today={today}
+            onAdd={(e) => setPending((p) => [...p, e])}
+            onRemove={(id) => setPending((p) => p.filter((e) => e.id !== id))}
+            onClear={() => setPending([])}
+          />
           <div className="mt-6">
-            <Entries entries={view.entries} categoryLabels={categoryLabels} />
+            <Entries entries={working.spend} categoryLabels={categoryLabels} />
           </div>
-        ) : (
-          <p className="mt-6 text-xs text-muted">Nothing logged in {view.label}.</p>
-        ))}
-
-      {tab === "plan" && (
-        <>
-      <Section
-        title="The whole plan"
-        note={`${plan.months} salary months, ${budget.period.start} to the last paycheque. Every figure here is editable in Admin.`}
-      >
-        <BudgetPlan budget={budget} plan={plan} progress={progress} rate={rate} />
-      </Section>
-
-      <Section
-        title="Projection"
-        note="What a typical day costs, carried over the rest of the plan, with the big days shown as a bracket instead of baked into every future month."
-      >
-        <SpendProjection projection={projection} rate={rate} />
-      </Section>
-
-      <Section title="Planned balance" note="Derived from the inputs above. Not yet anchored to a real bank balance.">
-        <BalancePlanChart series={balance} />
-      </Section>
         </>
       )}
 
-      {tab === "admin" && (
+      {tab === "settings" && (
         <>
-      {budget.reconcile.length > 0 && (
-        <Section title="Needs your call" note="Contradictions carried over from the spreadsheet. Nothing here was guessed at.">
-          <div className="flex flex-col gap-3">
-            {budget.reconcile.map((r) => (
-              <details key={r.id} className="rounded border border-border p-3">
-                <summary className="cursor-pointer text-xs">
-                  <span
-                    className="mr-2 font-bold"
-                    style={{ color: r.severity === "high" ? "var(--red)" : r.severity === "medium" ? "var(--yellow)" : "var(--muted)" }}
-                  >
-                    {r.severity}
-                  </span>
-                  {r.title}
-                </summary>
-                <p className="mt-2 text-[0.72rem] leading-relaxed text-muted">{r.detail}</p>
-                <p className="mt-2 text-[0.72rem] leading-relaxed">{r.asks}</p>
-              </details>
-            ))}
-          </div>
-        </Section>
-      )}
+          <Section title="Weekly caps" note="Limits you set for this device. Spend against them shows on Now; one-offs never count.">
+            <CapsEditor caps={caps} custom={capsSaved !== null} categories={budget.categories} onChange={setCaps} />
+          </Section>
 
-      <Section title="Budget admin" note="Change any number and the whole page recalculates. Edits stay on this device.">
-        <BudgetAdmin published={ledger.budget} working={budget} overrides={overrides} setOverrides={setOverrides} />
-      </Section>
+          <Section
+            title="The whole plan"
+            note={`${plan.months} salary months, ${budget.period.start} to the last paycheque. Every figure is editable in Budget admin below.`}
+          >
+            <BudgetPlan budget={budget} plan={plan} progress={progress} rate={rate} />
+          </Section>
+
+          <Section title="Season projection" note="A typical day carried over the rest of the plan, with big days shown as a bracket.">
+            <SpendProjection projection={projection} rate={rate} />
+          </Section>
+
+          {budget.reconcile.length > 0 && (
+            <Section title="Needs your call" note="Contradictions carried over from the spreadsheet. Nothing here was guessed at.">
+              <div className="flex flex-col gap-3">
+                {budget.reconcile.map((r) => (
+                  <details key={r.id} className="rounded border border-border p-3">
+                    <summary className="cursor-pointer text-xs">
+                      <span
+                        className="mr-2 font-bold"
+                        style={{ color: r.severity === "high" ? "var(--red)" : r.severity === "medium" ? "var(--yellow)" : "var(--muted)" }}
+                      >
+                        {r.severity}
+                      </span>
+                      {r.title}
+                    </summary>
+                    <p className="mt-2 text-[0.72rem] leading-relaxed text-muted">{r.detail}</p>
+                    <p className="mt-2 text-[0.72rem] leading-relaxed">{r.asks}</p>
+                  </details>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          <Section title="Budget admin" note="Change any number and the whole page recalculates. Edits stay on this device.">
+            <BudgetAdmin published={ledger.budget} working={budget} overrides={overrides} setOverrides={setOverrides} />
+          </Section>
         </>
       )}
 
       <p className="mt-10 text-center text-[0.65rem] text-muted">
         Built {new Date(ledger.builtAt).toLocaleString("en-US")} · budget updated {budget.updated}
+      </p>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- caps editor */
+
+function CapsEditor({
+  caps,
+  custom,
+  categories,
+  onChange,
+}: {
+  caps: Cap[];
+  custom: boolean;
+  categories: Category[];
+  onChange: (caps: Cap[] | null) => void;
+}) {
+  const unused = categories.filter((c) => !caps.some((cap) => cap.category === c.id));
+  const set = (id: string, weekly: number) => onChange(caps.map((c) => (c.id === id ? { ...c, weekly } : c)));
+
+  return (
+    <div className="flex flex-col gap-2 text-xs">
+      {caps.map((c) => (
+        <div key={c.id} className="flex items-center gap-2">
+          <span className="flex-1">{c.label}</span>
+          <span className="text-muted">¥</span>
+          <input
+            inputMode="numeric"
+            value={c.weekly}
+            onChange={(e) => set(c.id, Number(e.target.value.replace(/[^\d]/g, "")) || 0)}
+            className="w-24 rounded border border-border bg-transparent px-2 py-1.5 text-right tabular-nums outline-none focus:border-[var(--ice-hover)]"
+            aria-label={`${c.label} weekly cap in yen`}
+          />
+          <span className="text-muted">/wk</span>
+          <button onClick={() => onChange(caps.filter((x) => x.id !== c.id))} className="px-2 py-1 text-muted" aria-label={`Remove ${c.label} cap`}>
+            ✕
+          </button>
+        </div>
+      ))}
+      {unused.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => {
+            const cat = categories.find((c) => c.id === e.target.value);
+            if (cat) onChange([...caps, { id: cat.id, label: cat.label, category: cat.id, weekly: 5000 }]);
+          }}
+          className="mt-1 rounded border border-border bg-transparent px-2 py-2 text-muted"
+          aria-label="Add a cap"
+        >
+          <option value="">+ Add a cap for a category</option>
+          {unused.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      )}
+      <p className="text-[0.7rem] text-muted">
+        {custom ? (
+          <button onClick={() => onChange(null)} className="underline decoration-[var(--ice-rest)]">
+            Reset to suggested caps
+          </button>
+        ) : (
+          "Suggested: your last four weeks, cut by a quarter. Edit any number to set your own."
+        )}
       </p>
     </div>
   );

@@ -90,6 +90,8 @@ export type SpendEntry = {
   note?: string;
   /** A setup or one-time cost (bedding, a hotel night, a SIM card). Real spend, but left out of the typical-day rate. */
   oneOff?: boolean;
+  /** Added on this device and not yet folded into the published ledger. Never in the build. */
+  pending?: boolean;
 };
 
 export type Ledger = { v: number; builtAt: string; budget: Budget; spend: SpendEntry[] };
@@ -849,7 +851,7 @@ export type Insight = {
   impact: number;
 };
 
-const KONBINI = /7-eleven|familymart|family mart|lawson|ministop/i;
+export const KONBINI = /7-eleven|familymart|family mart|lawson|ministop/i;
 const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 /**
@@ -983,4 +985,43 @@ export function buildInsights(ledger: Ledger, weeks: WeekView[], typicalDailyRat
 
   const [first, ...rest] = out;
   return [first, ...rest.sort((a, b) => b.impact - a.impact)];
+}
+
+// ---------- weekly caps ----------
+
+/**
+ * A weekly limit on one slice of spend. A cap matches by category, or by the
+ * convenience-store vendors, which cut across dining, snus and household.
+ */
+export type Cap = { id: string; label: string; weekly: number; category?: string; konbini?: boolean };
+
+export function capMatches(cap: Cap, e: SpendEntry): boolean {
+  if (cap.konbini) return !!e.vendor && KONBINI.test(e.vendor);
+  return e.category === cap.category;
+}
+
+/** Spend against a cap between two ISO dates, inclusive. One-offs are not a habit, so they never count. */
+export function capSpend(cap: Cap, spend: SpendEntry[], from: string, to: string): number {
+  return spend.filter((e) => e.date >= from && e.date <= to && !e.oneOff && capMatches(cap, e)).reduce((s, e) => s + e.amount, 0);
+}
+
+/**
+ * Starting caps: the last four weeks' weekly average, cut by a quarter and
+ * rounded to ¥500. A starting point to be edited, not a verdict.
+ */
+export function defaultCaps(ledger: Ledger, today = todayISO()): Cap[] {
+  const from = addDays(today, -27);
+  const start = (cap: Omit<Cap, "weekly">): Cap => {
+    const avg = capSpend({ ...cap, weekly: 0 }, ledger.spend, from, today) / 4;
+    return { ...cap, weekly: Math.max(500, Math.round((avg * 0.75) / 500) * 500) };
+  };
+  return [
+    start({ id: "alcohol", label: "Alcohol", category: "alcohol" }),
+    start({ id: "konbini", label: "Convenience stores", konbini: true }),
+  ];
+}
+
+/** Season-end balance if every remaining day ran at `weekly` a week instead of the typical day. */
+export function endingBalanceAt(projection: SeasonProjection, weekly: number): number {
+  return projection.projectedEndingBalance + (projection.basis.typicalDailyRate - weekly / 7) * projection.daysRemaining;
 }
