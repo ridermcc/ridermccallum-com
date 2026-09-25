@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Explain } from "./ui";
 import { toCAD, yen, type Budget, type Plan, type PlanProgress, type ScheduleRow } from "@/lib/money";
 
 // Where every yen of gross income goes. One hue per destination, ordered the
@@ -98,8 +99,15 @@ export function BudgetPlan({
         </div>
       </div>
 
-      {/* the waterfall in numbers */}
-      <div className="rounded border border-border px-4 py-2 divide-y divide-[var(--border)]">
+      {/* the waterfall in numbers, folded on first view */}
+      <details className="group rounded border border-border px-4 py-2">
+        <summary className="flex cursor-pointer list-none items-center justify-between py-2 text-xs">
+          <span>Where the money goes</span>
+          <span className="text-muted transition-transform group-open:rotate-90" aria-hidden>
+            ›
+          </span>
+        </summary>
+        <div className="divide-y divide-[var(--border)]">
         <div>
           <Row label="Opening balance" amount={plan.openingBalance} note={budget.openingBalance.confirmedOn ? `confirmed ${budget.openingBalance.confirmedOn}` : undefined} />
         </div>
@@ -146,7 +154,8 @@ export function BudgetPlan({
           <Row label="Left to save and invest" amount={plan.toSaveAndInvest} strong />
           <Row label="Balance on the last paycheque" amount={plan.endingBalance} note={toCAD(plan.endingBalance, rate)} strong />
         </div>
-      </div>
+        </div>
+      </details>
 
       {/* actual vs plan, today */}
       <div className="rounded border border-border p-3">
@@ -165,22 +174,26 @@ export function BudgetPlan({
           ))}
         </div>
         {progress.paychequesReceived > 0 && (
-          <p className="mt-3 text-[0.7rem] leading-relaxed text-muted">
-            Budgeted {yen(progress.plannedLivingToDate)} of living so far.{" "}
-            <span style={{ color: progress.spendVsPlan > 0 ? "var(--red)" : "var(--green)" }}>
+          <>
+            <p className="mt-3 text-sm" style={{ color: progress.spendVsPlan > 0 ? "var(--red)" : "var(--green)" }}>
               {progress.spendVsPlan > 0
-                ? `${yen(progress.spendVsPlan)} over`
-                : `${yen(Math.abs(progress.spendVsPlan))} under`}
-            </span>
-            , on entries logged to date. Days with no entry pull this number down, so read it with the month view.
-          </p>
+                ? `${yen(progress.spendVsPlan)} over plan`
+                : `${yen(Math.abs(progress.spendVsPlan))} under plan`}
+            </p>
+            <Explain>
+              <p>
+                Budgeted {yen(progress.plannedLivingToDate)} of living so far, measured against entries logged to date.
+                Days with no entry pull this number down, so read it with the month view.
+              </p>
+            </Explain>
+          </>
         )}
       </div>
 
       <div>
         <button
           onClick={() => setShowMonths((v) => !v)}
-          className="text-xs text-muted underline decoration-[var(--ice-rest)] hover:decoration-[var(--ice-hover)]"
+          className="py-2 text-xs text-muted underline decoration-[var(--ice-rest)] hover:decoration-[var(--ice-hover)]"
         >
           {showMonths ? "Hide" : "Show"} month by month
         </button>

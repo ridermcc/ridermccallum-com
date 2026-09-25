@@ -1,5 +1,6 @@
 "use client";
 
+import { Explain } from "./ui";
 import { toCAD, yen, type SeasonProjection } from "@/lib/money";
 import { MonthlyProjectionChart } from "./charts";
 
@@ -80,27 +81,37 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
         </div>
 
         {splitMatters && (
-          <p className="mt-3 text-[0.72rem] leading-relaxed">
-            If the big days keep their current pace it lands{" "}
+          <p className="mt-3 text-sm">
+            With big days:{" "}
             <span style={{ color: overHigh ? "var(--red)" : "var(--green)" }}>
               {overHigh ? "+" : "−"}
               {yen(Math.abs(p.overUnderHigh))} {overHigh ? "over" : "under"}
             </span>
-            . {big.count} {big.count === 1 ? "day carries" : "days carry"} {yen(big.total)},{" "}
-            {Math.round(big.share * 100)}% of everything logged, so the month is decided by the big days, not the
-            routine ones.
           </p>
         )}
 
-        <p className="mt-2 text-[0.72rem] leading-relaxed text-muted">
-          A typical logged day runs {yen(p.basis.typicalDailyRate)} ({yen(p.typicalMonthlyRunRate)} a month). The
-          all-in average is {yen(p.basis.dailyRate)} a day because of the big ones; the projection carries both rates
-          forward.
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[0.7rem]">
+          <span className="rounded-full border px-2 py-0.5" style={{ borderColor: conf.color, color: conf.color }}>
+            {p.basis.daysObserved} {p.basis.daysObserved === 1 ? "day" : "days"} logged · {conf.label}
+          </span>
+        </div>
 
-        <p className="mt-2 rounded border px-2 py-1 text-[0.7rem] leading-relaxed" style={{ borderColor: conf.color, color: conf.color }}>
-          Based on {p.basis.daysObserved} logged {p.basis.daysObserved === 1 ? "day" : "days"} ({conf.label}). {conf.note}
-        </p>
+        <div className="mt-2">
+          <Explain label="Why two numbers?">
+            {splitMatters && (
+              <p>
+                {big.count} {big.count === 1 ? "day carries" : "days carry"} {yen(big.total)},{" "}
+                {Math.round(big.share * 100)}% of everything logged. The month is decided by the big days, not the
+                routine ones.
+              </p>
+            )}
+            <p>
+              A typical day runs {yen(p.basis.typicalDailyRate)} ({yen(p.typicalMonthlyRunRate)} a month). The all-in
+              average is {yen(p.basis.dailyRate)} a day because of the big ones. The projection carries both forward.
+            </p>
+            <p>{conf.note}</p>
+          </Explain>
+        </div>
       </div>
 
       {/* what it does to the money that matters */}
@@ -126,21 +137,22 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
       </div>
 
       <div>
-        <p className="mb-2 text-[0.7rem] text-muted">
-          Solid is logged, translucent carries typical days to month end, the whisker marks where the month lands if
-          the big days keep their pace. Bars turn red above the budget line.
-        </p>
         <MonthlyProjectionChart months={p.months} budget={p.budgetedLiving / Math.max(1, p.countedMonths)} />
+        <Explain label="Tap a bar · how to read">
+          <p>
+            Solid is logged. Translucent carries typical days to month end. The whisker marks where the month lands if
+            the big days keep their pace. Bars turn red above the budget line.
+          </p>
+          {p.uncountedMonths.length > 0 && (
+            <p>
+              {p.uncountedMonths.map((m) => m.label).join(", ")} {p.uncountedMonths.length === 1 ? "is" : "are"} left
+              out of every number above: only{" "}
+              {p.uncountedMonths.map((m) => `${m.loggedDays} of ${m.elapsedDays}`).join(", ")} days were logged.
+            </p>
+          )}
+        </Explain>
       </div>
 
-      {p.uncountedMonths.length > 0 && (
-        <p className="text-[0.7rem] leading-relaxed text-muted">
-          {p.uncountedMonths.map((m) => m.label).join(", ")}{" "}
-          {p.uncountedMonths.length === 1 ? "is" : "are"} left out of every number above. Logging covered only{" "}
-          {p.uncountedMonths.map((m) => `${m.loggedDays} of ${m.elapsedDays}`).join(", ")} days, so the logged total is
-          real spend but not a month. Counting it would understate the plan more than the projection corrects it.
-        </p>
-      )}
 
       {/* where the overage lives */}
       <div>
@@ -184,11 +196,15 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[0.7rem] leading-relaxed text-muted">
-          The category split still uses the all-in average, every yen of the big days included, so it shows where the
-          money actually went. Categories marked not budgeted carry real spend against a zero line: the budget is what
-          is wrong there, not the spending. Fix them in Budget admin and this projection moves with it.
-        </p>
+        <div className="mt-1">
+          <Explain>
+            <p>This split uses the all-in average, big days included, so it shows where the money actually went.</p>
+            <p>
+              &quot;Not budgeted&quot; categories carry real spend against a zero line. Fix them in Admin and this
+              projection moves with it.
+            </p>
+          </Explain>
+        </div>
       </div>
     </div>
   );

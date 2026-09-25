@@ -26,18 +26,49 @@ import { BalancePlanChart, CategoryBars, CategoryDonut, DailySpendChart } from "
 import { BudgetPlan } from "./BudgetPlan";
 import { SpendProjection } from "./SpendProjection";
 import { BudgetAdmin } from "./BudgetAdmin";
+import { Entries } from "./Entries";
 
 const OVERRIDES_KEY = "money:budget-overrides";
 
+// Section notes explain how to read a chart. They open on tap so the page
+// leads with numbers.
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  const [showNote, setShowNote] = useState(false);
   return (
     <section className="mt-8">
-      <h2 className="text-xs tracking-wide uppercase">{title}</h2>
-      {note && <p className="mt-0.5 text-[0.7rem] text-muted">{note}</p>}
+      <div className="flex items-center gap-2">
+        <h2 className="text-xs tracking-wide uppercase">{title}</h2>
+        {note && (
+          <button
+            onClick={() => setShowNote((v) => !v)}
+            aria-expanded={showNote}
+            aria-label={`About ${title}`}
+            className="-my-2 flex h-8 w-8 items-center justify-center"
+          >
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-full border text-[0.6rem] ${
+                showNote ? "border-foreground text-foreground" : "border-border text-muted"
+              }`}
+            >
+              ?
+            </span>
+          </button>
+        )}
+      </div>
+      {note && showNote && <p className="mt-1 text-[0.72rem] leading-relaxed text-muted">{note}</p>}
       <div className="mt-3">{children}</div>
     </section>
   );
 }
+
+const TABS = [
+  { id: "month", label: "Month" },
+  { id: "spending", label: "Spending" },
+  { id: "entries", label: "Entries" },
+  { id: "plan", label: "Plan" },
+  { id: "admin", label: "Admin" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
 
 export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () => void }) {
   const today = todayISO();
@@ -81,6 +112,18 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   const plan = useMemo(() => buildPlan(working.budget), [working]);
   const progress = useMemo(() => planProgress(working, today), [working, today]);
   const projection = useMemo(() => projectSeason(working, today), [working, today]);
+
+  // The page is split into tabs so a phone shows one screen of numbers at a
+  // time. The tab rides in the URL hash so a refresh lands back on it.
+  const [tab, setTabState] = useState<Tab>(() => {
+    const h = window.location.hash.slice(1);
+    return TABS.some((t) => t.id === h) ? (h as Tab) : "month";
+  });
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    history.replaceState(null, "", `#${t}`);
+    window.scrollTo({ top: 0 });
+  };
 
   // View-only currency. Rates load once on unlock; until they arrive (or if the
   // fetch fails) the page stays in yen.
@@ -149,22 +192,52 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </p>
       )}
 
-      {/* ---- month switcher ---- */}
-      <div className="mt-4 flex items-center gap-3 text-sm">
-        <button
-          onClick={() => setSelected(months[idx + 1])}
-          disabled={idx >= months.length - 1}
-          className="disabled:opacity-30"
-          aria-label="Previous month"
-        >
-          ←
-        </button>
-        <span className="min-w-[9ch] text-center">{view.label}</span>
-        <button onClick={() => setSelected(months[idx - 1])} disabled={idx <= 0} className="disabled:opacity-30" aria-label="Next month">
-          →
-        </button>
-        {view.isCurrentMonth && <span className="text-[0.7rem] text-muted">day {view.elapsedDays} of {view.days}</span>}
-      </div>
+      {/* ---- tabs ---- */}
+      <nav className="sticky top-0 z-10 -mx-4 mt-4 flex border-b border-border bg-background px-4 text-xs" aria-label="Money sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            aria-current={tab === t.id ? "page" : undefined}
+            className={`-mb-px flex-1 border-b-2 py-3 ${tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* ---- month switcher: only on the tabs that read one month ---- */}
+      {(tab === "month" || tab === "spending" || tab === "entries") && (
+        <div className="mt-3 flex items-center justify-between text-sm">
+          <button
+            onClick={() => setSelected(months[idx + 1])}
+            disabled={idx >= months.length - 1}
+            className="flex h-10 w-10 items-center justify-center rounded border border-border disabled:opacity-30"
+            aria-label="Previous month"
+          >
+            ←
+          </button>
+          <span className="text-center">
+            {view.label}
+            {view.isCurrentMonth && (
+              <span className="block text-[0.7rem] text-muted">
+                day {view.elapsedDays} of {view.days}
+              </span>
+            )}
+          </span>
+          <button
+            onClick={() => setSelected(months[idx - 1])}
+            disabled={idx <= 0}
+            className="flex h-10 w-10 items-center justify-center rounded border border-border disabled:opacity-30"
+            aria-label="Next month"
+          >
+            →
+          </button>
+        </div>
+      )}
+
+      {tab === "month" && (
+        <>
 
       {/* ---- hero ---- */}
       <div className="mt-6 rounded border border-border p-4">
@@ -224,22 +297,17 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
                 <span className="text-2xl tabular-nums">{yen(view.safePerDay)}</span>
                 <span className="text-sm text-muted">a day for the {view.days - view.elapsedDays} days left</span>
               </div>
-              <p className="mt-1 text-[0.72rem] leading-relaxed text-muted">
-                Hold that and the month lands on its {yen(view.budget)} budget. A typical day so far runs{" "}
-                {yen(projection.basis.typicalDailyRate)}.
-              </p>
+              <p className="mt-1 text-[0.72rem] text-muted">Typical day so far: {yen(projection.basis.typicalDailyRate)}</p>
             </>
           ) : (
             <>
               <div className="mt-1 flex items-baseline gap-3">
                 <span className="text-2xl tabular-nums">{yen(-view.remaining)}</span>
-                <span className="text-sm text-muted">past the month&apos;s budget, {view.days - view.elapsedDays} days left</span>
+                <span className="text-sm text-muted">over budget</span>
               </div>
-              <p className="mt-1 text-[0.72rem] leading-relaxed text-muted">
-                The month&apos;s {yen(view.budget)} is spent, so every yen from here comes out of savings. Quiet, typical
-                days from now on end the month about{" "}
-                {yen(-view.remaining + projection.basis.typicalDailyRate * (view.days - view.elapsedDays))} over; next
-                month starts the meter at zero again.
+              <p className="mt-1 text-[0.72rem] text-muted">
+                Typical days from here end the month about{" "}
+                {yen(-view.remaining + projection.basis.typicalDailyRate * (view.days - view.elapsedDays))} over.
               </p>
             </>
           )}
@@ -260,19 +328,31 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         ))}
       </div>
 
-      <Section
-        title="The whole plan"
-        note={`${plan.months} salary months, ${budget.period.start} to the last paycheque. Every figure here is editable at the bottom of this page.`}
-      >
-        <BudgetPlan budget={budget} plan={plan} progress={progress} rate={rate} />
-      </Section>
-
-      <Section
-        title="Projection"
-        note="What a typical day costs, carried over the rest of the plan, with the big days shown as a bracket instead of baked into every future month."
-      >
-        <SpendProjection projection={projection} rate={rate} />
-      </Section>
+      {view.spent > 0 && view.isCurrentMonth && view.elapsedDays < view.days && (() => {
+        // A range, not a verdict: logged spend plus typical days to month end,
+        // bracketed by the all-in average that the big days drag upward.
+        const remainingDays = view.days - view.elapsedDays;
+        const low = view.spent + projection.basis.typicalDailyRate * remainingDays;
+        const high = view.spent + projection.basis.dailyRate * remainingDays;
+        const lowDelta = low - view.budget;
+        return (
+          <Section title="Month-end projection" note="Logged spend plus typical days ahead; the second figure adds big days at their current pace.">
+            <div className="rounded border border-border p-3 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <span className="tabular-nums">
+                  {yen(low)}
+                  {high > low + 1 && <span className="text-muted"> to {yen(high)}</span>}
+                </span>
+                <span style={{ color: lowDelta > 0 ? "var(--red)" : "var(--green)" }}>
+                  {lowDelta > 0 ? `${yen(lowDelta)} over budget` : `${yen(Math.abs(lowDelta))} under budget`}
+                  {high > low + 1 && " on typical days"}
+                </span>
+              </div>
+              <p className="mt-1 text-[0.7rem] text-muted">{toCAD(low, rate)} at {rate} JPY per CAD</p>
+            </div>
+          </Section>
+        );
+      })()}
 
       <Section
         title="Daily spend"
@@ -287,6 +367,11 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         />
       </Section>
 
+        </>
+      )}
+
+      {tab === "spending" && (
+        <>
       <Section title="By category" note="Food, phone, transport are the live ones. Other is the sheet's remainder.">
         <CategoryBars groups={view.groups} />
       </Section>
@@ -315,53 +400,44 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </Section>
       )}
 
-      {view.spent > 0 && view.isCurrentMonth && view.elapsedDays < view.days && (() => {
-        // A range, not a verdict: logged spend plus typical days to month end,
-        // bracketed by the all-in average that the big days drag upward.
-        const remainingDays = view.days - view.elapsedDays;
-        const low = view.spent + projection.basis.typicalDailyRate * remainingDays;
-        const high = view.spent + projection.basis.dailyRate * remainingDays;
-        const lowDelta = low - view.budget;
-        return (
-          <Section title="Month-end projection" note="Logged spend plus typical days ahead; the second figure adds big days at their current pace.">
-            <div className="rounded border border-border p-3 text-sm">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <span className="tabular-nums">
-                  {yen(low)}
-                  {high > low + 1 && <span className="text-muted"> to {yen(high)}</span>}
-                </span>
-                <span style={{ color: lowDelta > 0 ? "var(--red)" : "var(--green)" }}>
-                  {lowDelta > 0 ? `${yen(lowDelta)} over budget` : `${yen(Math.abs(lowDelta))} under budget`}
-                  {high > low + 1 && " on typical days"}
-                </span>
-              </div>
-              <p className="mt-1 text-[0.7rem] text-muted">{toCAD(low, rate)} at {rate} JPY per CAD</p>
-            </div>
-          </Section>
-        );
-      })()}
+
+
+        </>
+      )}
+
+      {tab === "entries" &&
+        (view.entries.length > 0 ? (
+          <div className="mt-6">
+            <Entries entries={view.entries} categoryLabels={categoryLabels} />
+          </div>
+        ) : (
+          <p className="mt-6 text-xs text-muted">Nothing logged in {view.label}.</p>
+        ))}
+
+      {tab === "plan" && (
+        <>
+      <Section
+        title="The whole plan"
+        note={`${plan.months} salary months, ${budget.period.start} to the last paycheque. Every figure here is editable in Admin.`}
+      >
+        <BudgetPlan budget={budget} plan={plan} progress={progress} rate={rate} />
+      </Section>
+
+      <Section
+        title="Projection"
+        note="What a typical day costs, carried over the rest of the plan, with the big days shown as a bracket instead of baked into every future month."
+      >
+        <SpendProjection projection={projection} rate={rate} />
+      </Section>
 
       <Section title="Planned balance" note="Derived from the inputs above. Not yet anchored to a real bank balance.">
         <BalancePlanChart series={balance} />
       </Section>
-
-      {view.entries.length > 0 && (
-        <Section title="Entries" note={`${view.entries.length} logged in ${view.label}.`}>
-          <div className="flex flex-col divide-y divide-[var(--border)] text-xs">
-            {view.entries.map((e) => (
-              <div key={e.id} className="flex items-baseline justify-between gap-2 py-1.5">
-                <span className="text-muted tabular-nums">{e.date.slice(5)}</span>
-                <span className="flex-1 truncate">
-                  {e.vendor ?? categoryLabels[e.category]}
-                  {e.note && <span className="text-muted"> · {e.note}</span>}
-                </span>
-                <span className="tabular-nums">{yen(e.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
+        </>
       )}
 
+      {tab === "admin" && (
+        <>
       {budget.reconcile.length > 0 && (
         <Section title="Needs your call" note="Contradictions carried over from the spreadsheet. Nothing here was guessed at.">
           <div className="flex flex-col gap-3">
@@ -384,16 +460,11 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </Section>
       )}
 
-      <Section title="Budget admin" note="Change any number and the whole page recalculates.">
-        <details className="rounded border border-border p-3" open={edited}>
-          <summary className="cursor-pointer text-xs">
-            {edited ? "Edited on this device" : "Edit the budget"}
-          </summary>
-          <div className="mt-4">
-            <BudgetAdmin published={ledger.budget} working={budget} overrides={overrides} setOverrides={setOverrides} />
-          </div>
-        </details>
+      <Section title="Budget admin" note="Change any number and the whole page recalculates. Edits stay on this device.">
+        <BudgetAdmin published={ledger.budget} working={budget} overrides={overrides} setOverrides={setOverrides} />
       </Section>
+        </>
+      )}
 
       <p className="mt-10 text-center text-[0.65rem] text-muted">
         Built {new Date(ledger.builtAt).toLocaleString("en-US")} · budget updated {budget.updated}
