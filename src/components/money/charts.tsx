@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { DayActual, GroupActual, MonthProjection, SpendEntry } from "@/lib/money";
+import type { DayActual, GroupActual, MonthProjection, SpendEntry, WeekView } from "@/lib/money";
 import { yen } from "@/lib/money";
 
 // Shared chart geometry. One accent hue carries every measure; budget lines are
@@ -269,6 +269,121 @@ export function DailySpendChart({
         </p>
       )}
       {anySpend && <p className="mt-1 text-[0.65rem] text-muted">Tap or drag across the bars.</p>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------- week over week */
+
+/**
+ * Every week side by side against the weekly budget. Routine spend is the solid
+ * bar; one-offs stack on top, faded, so a setup week reads as what it was.
+ * Selection is controlled so the week switcher and the chart stay in step.
+ */
+export function WeeklyChart({
+  weeks,
+  selected,
+  onSelect,
+}: {
+  weeks: WeekView[];
+  selected: number;
+  onSelect: (i: number) => void;
+}) {
+  const { ref, width } = useMeasuredWidth();
+  const W = width || 0;
+  const H = 190;
+  const padL = 6;
+  const padR = 6;
+  const padT = 18;
+  const padB = 22;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const budget = weeks[0]?.budget ?? 0;
+  const yMax = Math.max(budget, ...weeks.map((w) => w.spent), 1) * 1.1;
+  const slot = plotW / Math.max(1, weeks.length);
+  const barW = Math.min(40, Math.max(8, slot - 8));
+  const y = (v: number) => padT + plotH - (v / yMax) * plotH;
+  const base = padT + plotH;
+
+  const sel = weeks[selected];
+  const prev = weeks[selected - 1];
+  const delta = sel && prev ? sel.spent - prev.spent : null;
+
+  return (
+    <div ref={ref}>
+      {W === 0 ? (
+        <div style={{ height: H }} />
+      ) : (
+        <svg
+          width={W}
+          height={H}
+          role="img"
+          aria-label="Spend by week against the weekly budget"
+          {...scrubProps((px) => Math.floor((px - padL) / slot), weeks.length, onSelect)}
+        >
+          <line x1={padL} x2={W - padR} y1={base} y2={base} stroke="var(--border)" strokeWidth={1} />
+          {weeks.map((w, i) => {
+            const cx = padL + i * slot + slot / 2;
+            const over = w.routine > w.budget;
+            const routineTop = y(w.routine);
+            const totalTop = y(w.spent);
+            return (
+              <g key={w.start}>
+                {i === selected && <rect x={padL + i * slot} y={padT} width={slot} height={plotH} fill="var(--moretransblack)" />}
+                {w.oneOff > 0 && (
+                  <rect x={cx - barW / 2} y={totalTop} width={barW} height={Math.max(0, routineTop - totalTop)} rx={3} fill="var(--muted)" opacity={0.45} />
+                )}
+                {w.routine > 0 && (
+                  <rect
+                    x={cx - barW / 2}
+                    y={routineTop}
+                    width={barW}
+                    height={Math.max(2, base - routineTop)}
+                    rx={4}
+                    fill={w.partial ? "var(--muted)" : over ? OVER : ACCENT}
+                    opacity={w.isCurrent ? 0.6 : 1}
+                  />
+                )}
+                <text x={cx} y={H - 7} textAnchor="middle" fontSize={10} fill={i === selected ? "var(--foreground)" : "var(--muted)"}>
+                  {Number(w.start.slice(5, 7))}/{Number(w.start.slice(8))}
+                </text>
+              </g>
+            );
+          })}
+          <line x1={padL} x2={W - padR} y1={y(budget)} y2={y(budget)} stroke="var(--foreground)" strokeWidth={1} strokeDasharray="4 3" opacity={0.6} />
+          <text x={W - padR} y={y(budget) - 5} textAnchor="end" fontSize={10} fill="var(--muted)" stroke="var(--background)" strokeWidth={3} paintOrder="stroke">
+            {yen(budget)}/week
+          </text>
+        </svg>
+      )}
+
+      {sel && (
+        <Readout>
+          <div className="flex items-baseline justify-between gap-2">
+            <span>
+              {sel.label}
+              {sel.isCurrent && <span className="ml-1.5 text-[0.7rem] text-muted">so far</span>}
+              {sel.partial && <span className="ml-1.5 text-[0.7rem] text-muted">partial, {sel.loggedDays} of 7 days logged</span>}
+            </span>
+            <span className="text-sm tabular-nums" style={{ color: sel.spent > sel.budget ? OVER : undefined }}>
+              {yen(sel.spent)}
+            </span>
+          </div>
+          <div className="mt-0.5 flex flex-wrap gap-x-3 text-[0.7rem] text-muted">
+            <span style={{ color: sel.spent > sel.budget ? OVER : UNDER }}>
+              {sel.spent > sel.budget ? `${yen(sel.spent - sel.budget)} over budget` : `${yen(sel.budget - sel.spent)} under budget`}
+            </span>
+            {delta !== null && (
+              <span>
+                {delta > 0 ? "+" : "−"}
+                {yen(Math.abs(delta))} vs week before
+              </span>
+            )}
+            {sel.oneOff > 0 && <span>one-offs {yen(sel.oneOff)}</span>}
+            {sel.bigDays > 0 && <span>{sel.bigDays} big {sel.bigDays === 1 ? "day" : "days"}</span>}
+          </div>
+        </Readout>
+      )}
     </div>
   );
 }

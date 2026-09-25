@@ -94,7 +94,10 @@ export function Entries({ entries, categoryLabels }: { entries: SpendEntry[]; ca
                         className="block w-full px-3 py-2.5 text-left"
                       >
                         <span className="flex items-baseline justify-between gap-3">
-                          <span className={expanded ? "" : "truncate"}>{e.vendor ?? categoryLabels[e.category]}</span>
+                          <span className={expanded ? "" : "truncate"}>
+                            {e.vendor ?? categoryLabels[e.category]}
+                            {e.oneOff && <span className="ml-1.5 text-[0.65rem] text-muted">one-off</span>}
+                          </span>
                           <span className="tabular-nums">{yen(e.amount)}</span>
                         </span>
                         {expanded ? (

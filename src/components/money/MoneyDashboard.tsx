@@ -6,7 +6,9 @@ import {
   availableMonths,
   balanceSeries,
   buildMonthView,
+  buildInsights,
   buildPlan,
+  buildWeeks,
   DISPLAY_CURRENCIES,
   fetchDisplayRates,
   fxIsStale,
@@ -35,6 +37,7 @@ import { BudgetPlan } from "./BudgetPlan";
 import { SpendProjection } from "./SpendProjection";
 import { BudgetAdmin } from "./BudgetAdmin";
 import { Entries } from "./Entries";
+import { WeekTab } from "./WeekTab";
 
 const OVERRIDES_KEY = "money:budget-overrides";
 
@@ -70,8 +73,9 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 }
 
 const TABS = [
+  { id: "week", label: "Week" },
   { id: "month", label: "Month" },
-  { id: "spending", label: "Spending" },
+  { id: "spending", label: "Spend" },
   { id: "entries", label: "Entries" },
   { id: "plan", label: "Plan" },
   { id: "admin", label: "Admin" },
@@ -125,7 +129,7 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   // time. The tab rides in the URL hash so a refresh lands back on it.
   const [tab, setTabState] = useState<Tab>(() => {
     const h = window.location.hash.slice(1);
-    return TABS.some((t) => t.id === h) ? (h as Tab) : "month";
+    return TABS.some((t) => t.id === h) ? (h as Tab) : "week";
   });
   const setTab = (t: Tab) => {
     setTabState(t);
@@ -154,6 +158,18 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   // Set during render so every child formats with the current choice.
   setDisplayCurrency(fx && currency !== "JPY" ? currency : "JPY", fx && currency !== "JPY" ? fx.rates[currency] : 1);
   const converted = fx !== null && currency !== "JPY";
+
+  // Insight copy is formatted text, so it rebuilds when the display currency changes.
+  const weeks = useMemo(
+    () => buildWeeks(working, today, projection.basis.typicalDailyRate),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [working, today, projection, currency, fx],
+  );
+  const insights = useMemo(
+    () => buildInsights(working, weeks, projection.basis.typicalDailyRate, today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [working, weeks, projection, today, currency, fx],
+  );
 
   const budget = working.budget;
   const edited = hasOverrides(overrides);
@@ -221,7 +237,7 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
             key={t.id}
             onClick={() => setTab(t.id)}
             aria-current={tab === t.id ? "page" : undefined}
-            className={`-mb-px flex-1 border-b-2 py-3 ${tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted"}`}
+            className={`-mb-px flex-1 border-b-2 px-0.5 py-3 ${tab === t.id ? "border-foreground text-foreground" : "border-transparent text-muted"}`}
           >
             {t.label}
           </button>
@@ -256,6 +272,15 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
             →
           </button>
         </div>
+      )}
+
+      {tab === "week" && (
+        <WeekTab
+          weeks={weeks}
+          insights={insights}
+          categoryLabels={categoryLabels}
+          typicalDailyRate={projection.basis.typicalDailyRate}
+        />
       )}
 
       {tab === "month" && (

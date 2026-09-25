@@ -88,6 +88,8 @@ export type SpendEntry = {
   category: string;
   vendor?: string;
   note?: string;
+  /** A setup or one-time cost (bedding, a hotel night, a SIM card). Real spend, but left out of the typical-day rate. */
+  oneOff?: boolean;
 };
 
 export type Ledger = { v: number; builtAt: string; budget: Budget; spend: SpendEntry[] };
@@ -544,7 +546,9 @@ export type ProjectionBasis = {
 
 export function projectionBasis(ledger: Ledger): ProjectionBasis {
   const byDate = new Map<string, number>();
-  for (const e of ledger.spend) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount);
+  // One-offs are real spend but not a habit, so they stay out of the rates the
+  // projection carries forward.
+  for (const e of ledger.spend) if (!e.oneOff) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount);
   const dates = [...byDate.keys()].sort();
   const dayTotals = [...byDate.values()].sort((a, b) => a - b);
   const total = dayTotals.reduce((s, v) => s + v, 0);
@@ -746,4 +750,237 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
     categories,
     representativeDays,
   };
+}
+
+// ---------- weeks ----------
+
+/** Shift an ISO date by whole days. UTC arithmetic so no clock change can skew it. */
+export function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** The Monday that starts the week holding `iso`. */
+export function weekStart(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dow = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+  return addDays(iso, -dow);
+}
+
+/** The monthly living budget spread evenly over 52 weeks. */
+export const weeklyBudget = (budget: Budget) => Math.round((budget.monthlyLivingBudget * 12) / 52);
+
+export type WeekView = {
+  start: string;
+  end: string;
+  label: string;
+  isCurrent: boolean;
+  /** Days of the week already lived, today included. 7 for a finished week. */
+  elapsedDays: number;
+  budget: number;
+  spent: number;
+  oneOff: number;
+  routine: number;
+  byCategory: Record<string, number>;
+  byDay: { date: string; total: number }[];
+  /** Days past twice the typical day. */
+  bigDays: number;
+  loggedDays: number;
+  /** More than two lived days with nothing logged: the total is real but not the whole week. */
+  partial: boolean;
+};
+
+function shortDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Monday-to-Sunday weeks from the first entry through the week holding today, oldest first. */
+export function buildWeeks(ledger: Ledger, today = todayISO(), typicalDailyRate = 0): WeekView[] {
+  if (ledger.spend.length === 0) return [];
+  const first = ledger.spend.reduce((min, e) => (e.date < min ? e.date : min), ledger.spend[0].date);
+  const budget = weeklyBudget(ledger.budget);
+  const weeks: WeekView[] = [];
+
+  for (let start = weekStart(first); start <= today; start = addDays(start, 7)) {
+    const end = addDays(start, 6);
+    const entries = ledger.spend.filter((e) => e.date >= start && e.date <= end);
+    const byDay = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(start, i);
+      return { date, total: entries.filter((e) => e.date === date).reduce((s, e) => s + e.amount, 0) };
+    });
+    const byCategory: Record<string, number> = {};
+    for (const e of entries) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
+    const spent = entries.reduce((s, e) => s + e.amount, 0);
+    const oneOff = entries.filter((e) => e.oneOff).reduce((s, e) => s + e.amount, 0);
+    const isCurrent = today <= end;
+    const elapsedDays = isCurrent ? byDay.filter((d) => d.date <= today).length : 7;
+    const loggedDays = byDay.filter((d) => d.date <= today && d.total > 0).length;
+    const sameMonth = start.slice(5, 7) === end.slice(5, 7);
+    weeks.push({
+      start,
+      end,
+      label: `${shortDate(start)} to ${sameMonth ? Number(end.slice(8)) : shortDate(end)}`,
+      isCurrent,
+      elapsedDays,
+      budget,
+      spent,
+      oneOff,
+      routine: spent - oneOff,
+      byCategory,
+      byDay,
+      bigDays: typicalDailyRate > 0 ? byDay.filter((d) => d.total > typicalDailyRate * 2).length : 0,
+      loggedDays,
+      // today may simply not be logged yet, so it never counts as a gap
+      partial: !isCurrent && elapsedDays - loggedDays > 2,
+    });
+  }
+  return weeks;
+}
+
+// ---------- insights ----------
+
+export type Insight = {
+  id: string;
+  tone: "good" | "warn" | "bad" | "info";
+  title: string;
+  body: string;
+  /** Rough yen a week this lever is worth. Ranks the cards. */
+  impact: number;
+};
+
+const KONBINI = /7-eleven|familymart|family mart|lawson|ministop/i;
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/**
+ * Plain rules over the last four weeks of routine spend, each ending in a
+ * number that can be acted on. The first card is always this week's allowance;
+ * the rest rank by how many yen a week they are worth.
+ */
+export function buildInsights(ledger: Ledger, weeks: WeekView[], typicalDailyRate: number, today = todayISO()): Insight[] {
+  const out: Insight[] = [];
+  const wBudget = weeklyBudget(ledger.budget);
+  const dailyBudget = wBudget / 7;
+  const current = weeks[weeks.length - 1];
+  const previous = weeks[weeks.length - 2];
+
+  // 1. this week's allowance
+  if (current) {
+    const left = current.budget - current.spent;
+    const daysLeft = 7 - current.elapsedDays + 1; // today still counts
+    if (left > 0) {
+      out.push({
+        id: "allowance",
+        tone: left / daysLeft >= typicalDailyRate ? "good" : "warn",
+        title: `${yen(left)} left this week`,
+        body: `${yen(left / daysLeft)} a day through Sunday. A typical day runs ${yen(typicalDailyRate)}.`,
+        impact: Infinity,
+      });
+    } else {
+      out.push({
+        id: "allowance",
+        tone: "bad",
+        title: `${yen(-left)} over this week's budget`,
+        body: `The week's ${yen(current.budget)} is spent. Monday resets it${
+          previous ? `; last week ran ${yen(previous.spent)}` : ""
+        }.`,
+        impact: Infinity,
+      });
+    }
+  }
+
+  const from = addDays(today, -27);
+  const recent = ledger.spend.filter((e) => e.date >= from && e.date <= today && !e.oneOff);
+  const byDate = new Map<string, number>();
+  for (const e of recent) byDate.set(e.date, (byDate.get(e.date) ?? 0) + e.amount);
+  const total = recent.reduce((s, e) => s + e.amount, 0);
+  const days = byDate.size;
+  if (days < 7) return out;
+
+  // 2. big nights
+  const big = [...byDate.values()].filter((v) => v > typicalDailyRate * 2);
+  const bigTotal = big.reduce((s, v) => s + v, 0);
+  if (big.length > 0 && bigTotal / total > 0.35) {
+    const headroom = wBudget - typicalDailyRate * 7;
+    const weeklyBig = (bigTotal / days) * 7;
+    out.push(
+      headroom > 0
+        ? {
+            id: "big-days",
+            tone: "bad",
+            title: `Keep nights out under ${yen(headroom)} a week`,
+            body: `${big.length} big days in the last 4 weeks cost ${yen(bigTotal)}, ${Math.round(
+              (bigTotal / total) * 100,
+            )}% of spend. Routine days leave ${yen(headroom)} a week for them; they have been running ${yen(weeklyBig)}.`,
+            impact: weeklyBig - headroom,
+          }
+        : {
+            id: "big-days",
+            tone: "bad",
+            title: "Routine days alone are over budget",
+            body: `A typical day runs ${yen(typicalDailyRate)} against ${yen(dailyBudget)} a day, before any nights out. Trim the routine first; the ${big.length} big days are on top.`,
+            impact: (typicalDailyRate - dailyBudget) * 7 + weeklyBig,
+          },
+    );
+  }
+
+  // 3. convenience stores
+  const konbini = recent.filter((e) => e.vendor && KONBINI.test(e.vendor));
+  if (konbini.length >= 10) {
+    const kTotal = konbini.reduce((s, e) => s + e.amount, 0);
+    const byDay = new Map<string, number[]>();
+    for (const e of konbini) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e.amount]);
+    // Keep the biggest stop each day; everything past it is the saving.
+    const saving = [...byDay.values()].reduce((s, list) => s + list.reduce((a, b) => a + b, 0) - Math.max(...list), 0);
+    if (saving > 2000) {
+      out.push({
+        id: "konbini",
+        tone: "warn",
+        title: `${konbini.length} convenience store stops, ${yen(kTotal)}`,
+        body: `${(konbini.length / days).toFixed(1)} a day at ${yen(kTotal / konbini.length)} each. One stop a day would have saved ${yen(saving)} over 4 weeks.`,
+        impact: (saving / days) * 7,
+      });
+    }
+  }
+
+  // 4. weekday pattern
+  const wd = WEEKDAY_NAMES.map(() => ({ total: 0, n: 0 }));
+  for (const [date, v] of byDate) {
+    const [y, m, d] = date.split("-").map(Number);
+    const i = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+    wd[i].total += v;
+    wd[i].n += 1;
+  }
+  const avgDay = total / days;
+  const peak = wd
+    .map((w, i) => ({ i, avg: w.n >= 2 ? w.total / w.n : 0 }))
+    .sort((a, b) => b.avg - a.avg)[0];
+  if (peak && peak.avg > avgDay * 1.8) {
+    out.push({
+      id: "weekday",
+      tone: "warn",
+      title: `${WEEKDAY_NAMES[peak.i]}s average ${yen(peak.avg)}`,
+      body: `${(peak.avg / avgDay).toFixed(1)}x an average day. Decide the ${WEEKDAY_NAMES[peak.i]} number before it starts.`,
+      impact: peak.avg - avgDay,
+    });
+  }
+
+  // 5. spend with no budget line
+  const unbudgeted = ledger.budget.categories.filter((c) => c.monthly === 0);
+  const ub = unbudgeted
+    .map((c) => ({ label: c.label, total: recent.filter((e) => e.category === c.id).reduce((s, e) => s + e.amount, 0) }))
+    .filter((c) => c.total > 0);
+  if (ub.length > 0) {
+    const ubTotal = ub.reduce((s, c) => s + c.total, 0);
+    out.push({
+      id: "unbudgeted",
+      tone: "info",
+      title: `No budget line for ${ub.map((c) => c.label).join(" and ")}`,
+      body: `${yen(ubTotal)} in the last 4 weeks sits against ${yen(0)}. Set a realistic number in Admin so the plan counts it.`,
+      impact: (ubTotal / days) * 7,
+    });
+  }
+
+  const [first, ...rest] = out;
+  return [first, ...rest.sort((a, b) => b.impact - a.impact)];
 }
