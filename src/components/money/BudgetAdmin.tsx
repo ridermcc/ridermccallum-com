@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { yen, type Budget, type BudgetOverrides } from "@/lib/money";
+import type { SaveState } from "./MoneyDashboard";
 
 /**
- * Every figure in the plan is editable here. Edits are a patch held in this
- * browser, layered over the published budget. Nothing is sent anywhere, and
- * "Reset all" always returns to the numbers that shipped in the ledger.
+ * Every figure in the plan is editable here. Edits are a patch over the
+ * published budget that saves, encrypted, and loads on every device; the next
+ * ledger build folds it into budget.json. "Undo all" returns to the published
+ * numbers.
  */
+
+const SAVE_LABEL: Record<SaveState, string> = {
+  loading: "Loading your budget…",
+  idle: "Your budget",
+  saving: "Saving…",
+  saved: "Saved. Applies on every device.",
+  error: "Not saved. Check the connection.",
+};
 
 type Field = {
   key: string;
@@ -81,6 +91,7 @@ export function BudgetAdmin({
   working,
   overrides,
   setOverrides,
+  saveState,
 }: {
   /** The budget exactly as it shipped in the encrypted ledger. */
   published: Budget;
@@ -88,9 +99,8 @@ export function BudgetAdmin({
   working: Budget;
   overrides: BudgetOverrides;
   setOverrides: (o: BudgetOverrides) => void;
+  saveState: SaveState;
 }) {
-  const [copied, setCopied] = useState(false);
-
   const setCategory = (id: string, n: number) =>
     setOverrides({ ...overrides, categories: { ...overrides.categories, [id]: n } });
   const setIncome = (k: keyof NonNullable<BudgetOverrides["income"]>, n: number) =>
@@ -102,10 +112,18 @@ export function BudgetAdmin({
 
   return (
     <div className="flex flex-col gap-4">
+      <p
+        className="sticky top-[7.5rem] z-10 rounded border bg-background px-2 py-1.5 text-[0.7rem]"
+        style={{
+          borderColor: saveState === "error" ? "var(--red)" : saveState === "saved" ? "var(--green)" : "var(--border)",
+          color: saveState === "error" ? "var(--red)" : undefined,
+        }}
+        aria-live="polite"
+      >
+        {SAVE_LABEL[saveState]}
+      </p>
       <p className="text-[0.7rem] leading-relaxed text-muted">
-        Changes apply everywhere on this page immediately and stay on this device. They do not touch the published
-        ledger. Copy them out below and I will fold them into <code>budget.json</code> so they survive a rebuild and
-        follow you to another device.
+        Edits are your real budget. They save a moment after you stop typing and every number on the page follows.
       </p>
 
       <Block title={`Monthly living · ${yen(working.monthlyLivingBudget)}`}>
@@ -265,19 +283,12 @@ export function BudgetAdmin({
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => {
-            navigator.clipboard.writeText(JSON.stringify(overrides, null, 2));
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            if (confirm("Undo every change and go back to the published budget?")) setOverrides({});
           }}
-          className="rounded border border-border px-3 py-1.5 text-xs hover:border-[var(--ice-hover)]"
+          disabled={saveState === "loading"}
+          className="rounded border border-border px-3 py-2 text-xs hover:border-[var(--ice-hover)] disabled:opacity-30"
         >
-          {copied ? "Copied" : "Copy changes as JSON"}
-        </button>
-        <button
-          onClick={() => setOverrides({})}
-          className="rounded border border-border px-3 py-1.5 text-xs hover:border-[var(--ice-hover)]"
-        >
-          Reset all to published
+          Undo all changes
         </button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { decryptLedger, deriveWriteToken, encryptJSON, type Envelope } from "@/lib/money-crypto";
 import {
   applyOverrides,
   availableMonths,
@@ -97,17 +98,84 @@ function persist(key: string, value: unknown) {
   }
 }
 
-export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () => void }) {
+export type SaveState = "loading" | "idle" | "saving" | "saved" | "error";
+
+/** Whether a patch changes anything once applied, as opposed to restating what already shipped. */
+function changesBudget(published: Ledger["budget"], o: BudgetOverrides): boolean {
+  return hasOverrides(o) && JSON.stringify(applyOverrides(published, o)) !== JSON.stringify(applyOverrides(published, {}));
+}
+
+export function MoneyDashboard({ ledger, passphrase, onLock }: { ledger: Ledger; passphrase: string; onLock: () => void }) {
   const today = todayISO();
 
-  // Budget edits live in this browser as a patch over the published ledger, so
-  // the numbers can be changed here without a rebuild and without ever losing
-  // the figures that shipped.
-  // Read on the first render, not in an effect: this component only ever mounts
-  // after the passphrase gate has unlocked, so there is no server render to
-  // mismatch against.
-  const [overrides, setOverrides] = useState<BudgetOverrides>(() => stored<BudgetOverrides>(OVERRIDES_KEY, {}));
-  useEffect(() => persist(OVERRIDES_KEY, hasOverrides(overrides) ? overrides : null), [overrides]);
+  // Budget edits are the real budget. They save, encrypted under the ledger
+  // passphrase, to /api/money/budget and load on every device. The next ledger
+  // build folds them into budget.json and clears the saved copy.
+  const [overrides, setOverrides] = useState<BudgetOverrides>({});
+  const [saveState, setSaveState] = useState<SaveState>("loading");
+  const loaded = useRef(false);
+  // The load itself sets overrides; that one change is not an edit to save.
+  const skipNextSave = useRef(false);
+  const writeToken = useRef<Promise<string> | null>(null);
+
+  const save = async (o: BudgetOverrides) => {
+    writeToken.current ??= deriveWriteToken(passphrase);
+    const headers = { "x-money-key": await writeToken.current };
+    const res = changesBudget(ledger.budget, o)
+      ? await fetch("/api/money/budget", { method: "PUT", headers, body: JSON.stringify(await encryptJSON(o, passphrase)) })
+      : await fetch("/api/money/budget", { method: "DELETE", headers });
+    if (!res.ok) throw new Error(`save failed (${res.status})`);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let remote: BudgetOverrides = {};
+      try {
+        const res = await fetch("/api/money/budget", { cache: "no-store" });
+        if (res.status === 200) remote = await decryptLedger<BudgetOverrides>((await res.json()) as Envelope, passphrase);
+      } catch {
+        if (!cancelled) setSaveState("error");
+        return;
+      }
+      if (cancelled) return;
+      // Edits made before saving existed lived only in this browser. Carry them
+      // over once, unless the published ledger already has them.
+      const legacy = stored<BudgetOverrides>(OVERRIDES_KEY, {});
+      persist(OVERRIDES_KEY, null);
+      const start = changesBudget(ledger.budget, remote) ? remote : changesBudget(ledger.budget, legacy) ? legacy : {};
+      skipNextSave.current = true;
+      setOverrides(start);
+      loaded.current = true;
+      if (start === legacy && hasOverrides(legacy)) {
+        setSaveState("saving");
+        save(legacy).then(() => setSaveState("saved"), () => setSaveState("error"));
+      } else {
+        // A saved copy that restates the published budget has been folded in; drop it.
+        if (hasOverrides(remote) && start !== remote) save({}).catch(() => {});
+        setSaveState("idle");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledger, passphrase]);
+
+  // Save shortly after the last keystroke, not on every one.
+  useEffect(() => {
+    if (!loaded.current) return;
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      setSaveState("saving");
+      save(overrides).then(() => setSaveState("saved"), () => setSaveState("error"));
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overrides]);
 
   // Entries added on this phone. They count everywhere at once and drop off by
   // id once the published ledger carries them.
@@ -187,7 +255,6 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
   );
 
   const budget = working.budget;
-  const edited = hasOverrides(overrides);
   const rate = budget.meta.fx.CAD_JPY;
   const categoryLabels = Object.fromEntries(budget.categories.map((c) => [c.id, c.label]));
   const idx = months.indexOf(selected);
@@ -230,9 +297,9 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
         </p>
       )}
       {fxError && <p className="mt-1 text-[0.7rem] text-muted">Live rates unavailable. Showing yen.</p>}
-      {edited && (
-        <p className="mt-2 rounded border px-2 py-1 text-[0.7rem]" style={{ borderColor: "var(--yellow)", color: "var(--yellow)" }}>
-          Showing your edited budget, not the published one. Reset it under the gear.
+      {saveState === "error" && (
+        <p className="mt-2 rounded border px-2 py-1 text-[0.7rem]" style={{ borderColor: "var(--red)", color: "var(--red)" }}>
+          Budget changes could not be loaded or saved. Check the connection and reload.
         </p>
       )}
 
@@ -343,8 +410,14 @@ export function MoneyDashboard({ ledger, onLock }: { ledger: Ledger; onLock: () 
             </Section>
           )}
 
-          <Section title="Budget admin" note="Change any number and the whole page recalculates. Edits stay on this device.">
-            <BudgetAdmin published={ledger.budget} working={budget} overrides={overrides} setOverrides={setOverrides} />
+          <Section title="Budget admin" note="Change any number and the whole page recalculates. Changes save to your budget and show on every device.">
+            <BudgetAdmin
+              published={ledger.budget}
+              working={budget}
+              overrides={overrides}
+              setOverrides={setOverrides}
+              saveState={saveState}
+            />
           </Section>
         </>
       )}

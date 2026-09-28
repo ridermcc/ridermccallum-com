@@ -9,6 +9,8 @@ const SESSION_KEY = "money:pp";
 
 export function MoneyGate() {
   const [ledger, setLedger] = useState<Ledger | null>(null);
+  // Kept for saving budget edits, which are encrypted under the same passphrase.
+  const [key, setKey] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [status, setStatus] = useState<"idle" | "working" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -23,6 +25,7 @@ export function MoneyGate() {
       const envelope: Envelope = await res.json();
       const data = await decryptLedger<Ledger>(envelope, pp);
       sessionStorage.setItem(SESSION_KEY, pp);
+      setKey(pp);
       setLedger(data);
       setStatus("idle");
     } catch (err) {
@@ -44,10 +47,11 @@ export function MoneyGate() {
   function lock() {
     sessionStorage.removeItem(SESSION_KEY);
     setPassphrase("");
+    setKey("");
     setLedger(null);
   }
 
-  if (ledger) return <MoneyDashboard ledger={ledger} onLock={lock} />;
+  if (ledger) return <MoneyDashboard ledger={ledger} passphrase={key} onLock={lock} />;
 
   return (
     <div className="flex min-h-[60vh] flex-col justify-center">
