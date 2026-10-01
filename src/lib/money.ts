@@ -94,7 +94,20 @@ export type SpendEntry = {
   pending?: boolean;
 };
 
-export type Ledger = { v: number; builtAt: string; budget: Budget; spend: SpendEntry[] };
+/** Money in on top of the salary: a camp, a client, a bonus. Logged as it lands. */
+export type IncomeEntry = {
+  id: string;
+  date: string;
+  /** Gross, before anything withheld. */
+  amount: number;
+  source: string;
+  note?: string;
+  /** Withheld at source. Zero when it arrived untaxed. */
+  tax?: number;
+};
+
+/** `income` is absent on ledgers built before extra income was logged. */
+export type Ledger = { v: number; builtAt: string; budget: Budget; spend: SpendEntry[]; income?: IncomeEntry[] };
 
 // ---------- date helpers (all local time; Rider reads this in JST) ----------
 
@@ -304,8 +317,8 @@ export function availableMonths(ledger: Ledger, today = todayISO()): string[] {
 }
 
 /** Plan balance line, derived from the budget inputs. */
-export function balanceSeries(budget: Budget) {
-  return computeSchedule(budget).map((row) => ({
+export function balanceSeries(budget: Budget, extra: IncomeEntry[] = []) {
+  return computeSchedule(budget, extra).map((row) => ({
     date: row.date,
     label: new Date(row.date).toLocaleDateString("en-US", { month: "short" }),
     plan: row.planBalance,
@@ -320,22 +333,38 @@ export function balanceSeries(budget: Budget) {
  * from the inputs in `budget.json`, so changing a figure in the admin moves the
  * whole projection instead of leaving a stale table behind.
  */
-export function computeSchedule(budget: Budget): ScheduleRow[] {
+export function computeSchedule(budget: Budget, extra: IncomeEntry[] = []): ScheduleRow[] {
   const { income, obligations, openingBalance, monthlyLivingBudget } = budget;
   const [y0, m0, d0] = income.firstSalaryDate.split("-").map(Number);
+  const n = income.salaryMonths;
+  const rowMonth = (i: number) => {
+    const d = new Date(y0, m0 - 1 + i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  // Extra income lands on the salary month of the calendar month it arrived in.
+  // Anything before the first paycheque or after the last goes on the nearest end.
+  const extraIn = Array.from({ length: n }, () => ({ amount: 0, tax: 0 }));
+  for (const e of extra) {
+    const k = monthKey(e.date);
+    let i = 0;
+    while (i < n - 1 && rowMonth(i) < k) i++;
+    extraIn[i].amount += e.amount;
+    extraIn[i].tax += e.tax ?? 0;
+  }
 
   let balance = openingBalance.planStartJPY;
   let loanPaymentsMade = 0;
 
-  return Array.from({ length: income.salaryMonths }, (_, i) => {
+  return Array.from({ length: n }, (_, i) => {
     const d = new Date(y0, m0 - 1 + i, d0);
     const p = (n: number) => String(n).padStart(2, "0");
     const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 
     const salaryMonth = i + 1;
     const salary = i === 0 ? income.firstMonthSalaryJPY : income.monthlySalaryJPY;
-    const additional = i === 0 ? income.additionalIncomeJPY : 0;
-    const tax = Math.round(salary * income.taxRate);
+    const additional = (i === 0 ? income.additionalIncomeJPY : 0) + extraIn[i].amount;
+    const tax = Math.round(salary * income.taxRate) + extraIn[i].tax;
 
     const loanDue =
       salaryMonth >= obligations.studentLoanFirstSalaryMonthIndex &&
@@ -393,8 +422,8 @@ export type Plan = {
 };
 
 /** The whole-season waterfall: money in, tax, spend, obligations, what is left. */
-export function buildPlan(budget: Budget): Plan {
-  const schedule = computeSchedule(budget);
+export function buildPlan(budget: Budget, extra: IncomeEntry[] = []): Plan {
+  const schedule = computeSchedule(budget, extra);
   const sum = (f: (r: ScheduleRow) => number) => schedule.reduce((s, r) => s + f(r), 0);
 
   const grossSalary = sum((r) => r.salary);
@@ -451,7 +480,7 @@ export type PlanProgress = {
 
 /** Where the plan says you should be right now, against what has actually been logged. */
 export function planProgress(ledger: Ledger, today = todayISO()): PlanProgress {
-  const plan = buildPlan(ledger.budget);
+  const plan = buildPlan(ledger.budget, ledger.income);
   const paid = plan.schedule.filter((r) => r.date <= today);
   const salaryReceived = paid.reduce((s, r) => s + r.salary + r.additional, 0);
   const plannedLivingToDate = paid.length * ledger.budget.monthlyLivingBudget;
@@ -640,7 +669,7 @@ export type SeasonProjection = {
  * corrects it.
  */
 export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProjection {
-  const plan = buildPlan(ledger.budget);
+  const plan = buildPlan(ledger.budget, ledger.income);
   const basis = projectionBasis(ledger);
   const monthBudget = ledger.budget.monthlyLivingBudget;
   const nowKey = monthKey(today);
@@ -752,6 +781,53 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
     categories,
     representativeDays,
   };
+}
+
+// ---------- pay vs spend, month by month ----------
+
+export type PayMonth = {
+  key: string;
+  label: string;
+  status: MonthProjection["status"];
+  salary: number;
+  extra: number;
+  extraEntries: IncomeEntry[];
+  tax: number;
+  /** Student loan and any one-off fees that come off this paycheque. */
+  obligations: number;
+  /** Logged spend so far. */
+  spent: number;
+  /** Logged spend plus typical days to month end. Equals `spent` once the month is over. */
+  spend: number;
+  /** Pay in, less tax, obligations and spend. Negative means the month ate into savings. */
+  left: number;
+};
+
+/** One row per salary month: what came in, what tax and spending took, what stayed. */
+export function payMonths(ledger: Ledger, plan: Plan, projection: SeasonProjection): PayMonth[] {
+  return plan.schedule.map((r, i) => {
+    const m = projection.months[i];
+    const key = monthKey(r.date);
+    const obligations = r.studentLoan + r.agentFee + r.lawyer;
+    const spend = Math.round(m.projected);
+    return {
+      key,
+      label: m.label,
+      status: m.status,
+      salary: r.salary,
+      extra: r.additional,
+      // Same placement as computeSchedule: strays before or after the season sit on the ends.
+      extraEntries: (ledger.income ?? []).filter((e) => {
+        const k = monthKey(e.date);
+        return k === key || (i === 0 && k < key) || (i === plan.schedule.length - 1 && k > key);
+      }),
+      tax: r.tax,
+      obligations,
+      spent: m.actual,
+      spend,
+      left: r.salary + r.additional - r.tax - obligations - spend,
+    };
+  });
 }
 
 // ---------- weeks ----------

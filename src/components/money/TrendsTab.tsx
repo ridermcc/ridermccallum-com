@@ -5,6 +5,7 @@ import {
   endingBalanceAt,
   yen,
   type MonthView,
+  type PayMonth,
   type Plan,
   type SeasonProjection,
   type WeekView,
@@ -19,6 +20,7 @@ import {
   WeekdayChart,
   WeeklyChart,
 } from "./charts";
+import { PayMonths } from "./PayMonths";
 import { Explain } from "./ui";
 
 export type Period = "week" | "month" | "season";
@@ -46,6 +48,7 @@ export function TrendsTab({
   projection,
   plan,
   balance,
+  payMonths,
   categoryLabels,
 }: {
   period: Period;
@@ -56,6 +59,7 @@ export function TrendsTab({
   projection: SeasonProjection;
   plan: Plan;
   balance: { date: string; label: string; plan: number }[];
+  payMonths: PayMonth[];
   categoryLabels: Record<string, string>;
 }) {
   const typical = projection.basis.typicalDailyRate;
@@ -143,6 +147,9 @@ export function TrendsTab({
 
       {period === "season" && (
         <>
+          <Block title="Pay, tax, spend, left over">
+            <PayMonths months={payMonths} />
+          </Block>
           <WhatIf projection={projection} plan={plan} weeklyBudget={weeks[0]?.budget ?? 0} />
           {projection.countedMonths > 0 && (
             <Block title="Month by month">

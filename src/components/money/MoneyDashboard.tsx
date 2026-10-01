@@ -15,6 +15,7 @@ import {
   fetchDisplayRates,
   hasOverrides,
   monthKey,
+  payMonths as buildPayMonths,
   planProgress,
   projectSeason,
   setDisplayCurrency,
@@ -207,10 +208,11 @@ export function MoneyDashboard({ ledger, passphrase, onLock }: { ledger: Ledger;
   );
 
   const view = useMemo(() => buildMonthView(working, selected, today), [working, selected, today]);
-  const balance = useMemo(() => balanceSeries(working.budget), [working]);
-  const plan = useMemo(() => buildPlan(working.budget), [working]);
+  const balance = useMemo(() => balanceSeries(working.budget, working.income), [working]);
+  const plan = useMemo(() => buildPlan(working.budget, working.income), [working]);
   const progress = useMemo(() => planProgress(working, today), [working, today]);
   const projection = useMemo(() => projectSeason(working, today), [working, today]);
+  const payMonths = useMemo(() => buildPayMonths(working, plan, projection), [working, plan, projection]);
 
   // The tab rides in the URL hash so a refresh lands back on it.
   const [tab, setTabState] = useState<Tab>(() => {
@@ -350,6 +352,7 @@ export function MoneyDashboard({ ledger, passphrase, onLock }: { ledger: Ledger;
           projection={projection}
           plan={plan}
           balance={balance}
+          payMonths={payMonths}
           categoryLabels={categoryLabels}
         />
       )}
