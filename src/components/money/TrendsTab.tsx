@@ -169,8 +169,13 @@ export function TrendsTab({
 /* ------------------------------------------------------------- week trends */
 
 function WeekTrends({ weeks, categoryLabels }: { weeks: WeekView[]; categoryLabels: Record<string, string> }) {
-  const [selected, setSelected] = useState(weeks.length - 1);
+  // Held by start date, not position: null follows the current week, so a new
+  // week rolling in (or a new entry adding one) never leaves the view behind.
+  const [pickedStart, setPickedStart] = useState<string | null>(null);
   if (weeks.length === 0) return <p className="mt-6 text-xs text-muted">Nothing logged yet.</p>;
+  const found = pickedStart === null ? -1 : weeks.findIndex((x) => x.start === pickedStart);
+  const selected = found >= 0 ? found : weeks.length - 1;
+  const setSelected = (i: number) => setPickedStart(i === weeks.length - 1 ? null : weeks[i].start);
   const w = weeks[selected];
   const prev = weeks[selected - 1];
 
@@ -211,6 +216,10 @@ function WeekTrends({ weeks, categoryLabels }: { weeks: WeekView[]; categoryLabe
         </div>
       </Block>
 
+      <Block title={`${w.label}, day by day`}>
+        <WeekDays week={w} categoryLabels={categoryLabels} />
+      </Block>
+
       {prev && changes.length > 0 && (
         <Block title={`${w.label} vs the week before`}>
           <table className="w-full text-[0.72rem] tabular-nums">
@@ -241,6 +250,70 @@ function WeekTrends({ weeks, categoryLabels }: { weeks: WeekView[]; categoryLabe
         </Block>
       )}
     </>
+  );
+}
+
+/**
+ * The selected week Monday to Sunday by date, whatever month each day falls
+ * in. A week that starts in one month and ends in the next keeps all seven
+ * days, with the month named on the first day and wherever it changes.
+ */
+function WeekDays({ week, categoryLabels }: { week: WeekView; categoryLabels: Record<string, string> }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const today = week.isCurrent ? week.byDay[week.elapsedDays - 1]?.date : null;
+  const max = Math.max(...week.byDay.map((d) => d.total), week.budget / 7, 1);
+  const share = week.budget / 7;
+
+  return (
+    <div className="flex flex-col">
+      {week.byDay.map((d, i) => {
+        const [y, m, day] = d.date.split("-").map(Number);
+        const date = new Date(y, m - 1, day);
+        const newMonth = i === 0 || d.date.slice(5, 7) !== week.byDay[i - 1].date.slice(5, 7);
+        const future = today !== null && d.date > today;
+        const cats = Object.entries(d.byCategory).sort((a, b) => b[1] - a[1]);
+        const isOpen = open === d.date && cats.length > 0;
+        return (
+          <div key={d.date} className={i > 0 && newMonth ? "mt-1 border-t border-border pt-1" : undefined}>
+            <button
+              onClick={() => setOpen(isOpen ? null : d.date)}
+              disabled={cats.length === 0}
+              aria-expanded={isOpen}
+              className="flex w-full items-center gap-3 py-1.5 text-left text-xs"
+            >
+              <span className={`w-16 shrink-0 ${d.date === today ? "text-foreground" : "text-muted"}`}>
+                {date.toLocaleDateString("en-US", { weekday: "short" })} {day}
+                {newMonth && <span className="ml-1">{date.toLocaleDateString("en-US", { month: "short" })}</span>}
+              </span>
+              <span className="relative h-2.5 flex-1 rounded-sm" style={{ background: "var(--moretransblack)" }}>
+                {d.total > 0 && (
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-sm"
+                    style={{ width: `${(d.total / max) * 100}%`, background: d.total > share ? "var(--red)" : "var(--accent)" }}
+                  />
+                )}
+                <span className="absolute inset-y-[-2px] w-px" style={{ left: `${(share / max) * 100}%`, background: "var(--foreground)", opacity: 0.5 }} aria-hidden />
+              </span>
+              <span className="w-16 shrink-0 text-right tabular-nums">
+                {d.total > 0 ? yen(d.total) : <span className="text-muted">{future ? "" : "·"}</span>}
+              </span>
+            </button>
+            {isOpen && (
+              <div className="mb-1 ml-[4.75rem] flex flex-wrap gap-x-3 text-[0.68rem] text-muted">
+                {cats.map(([id, v]) => (
+                  <span key={id}>
+                    {categoryLabels[id] ?? id} {yen(v)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <p className="mt-1 text-[0.65rem] text-muted">
+        The thin line is a day&apos;s even share of the week, {yen(share)}. Tap a day for its categories.
+      </p>
+    </div>
   );
 }
 

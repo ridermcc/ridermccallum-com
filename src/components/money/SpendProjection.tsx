@@ -157,7 +157,7 @@ export function SpendProjection({ projection, rate }: { projection: SeasonProjec
       {/* where the overage lives */}
       <div>
         <h3 className="text-[0.7rem] tracking-wide text-muted uppercase">
-          By category, per {p.representativeDays}-day month
+          By category, per average month
         </h3>
         <div className="mt-2">
           {/* the budget column steps back on phones so projected and over/under stay on screen */}

@@ -736,9 +736,12 @@ export function projectSeason(ledger: Ledger, today = todayISO()): SeasonProject
 
   // Categories are compared over one representative month so the figures line
   // up with the monthly budgets they are read against.
-  const representativeDays = daysInMonth(nowKey);
+  // An average month (365 / 12 days), not the current one, so these figures
+  // do not jump by a day's spend every time the calendar month turns over.
+  const representativeDays = 365 / 12;
   const observedByCategory = new Map<string, number>();
-  for (const e of ledger.spend) observedByCategory.set(e.category, (observedByCategory.get(e.category) ?? 0) + e.amount);
+  // Same rule as the basis: one-offs are divided by routine days nowhere else, so not here either.
+  for (const e of ledger.spend) if (!e.oneOff) observedByCategory.set(e.category, (observedByCategory.get(e.category) ?? 0) + e.amount);
 
   const categories: CategoryProjection[] = ledger.budget.categories
     .map((c) => {
@@ -860,7 +863,8 @@ export type WeekView = {
   oneOff: number;
   routine: number;
   byCategory: Record<string, number>;
-  byDay: { date: string; total: number }[];
+  /** Monday to Sunday by date, so a week that crosses into a new month keeps all seven days. */
+  byDay: { date: string; total: number; byCategory: Record<string, number> }[];
   /** Days past twice the typical day. */
   bigDays: number;
   loggedDays: number;
@@ -885,7 +889,10 @@ export function buildWeeks(ledger: Ledger, today = todayISO(), typicalDailyRate 
     const entries = ledger.spend.filter((e) => e.date >= start && e.date <= end);
     const byDay = Array.from({ length: 7 }, (_, i) => {
       const date = addDays(start, i);
-      return { date, total: entries.filter((e) => e.date === date).reduce((s, e) => s + e.amount, 0) };
+      const dayEntries = entries.filter((e) => e.date === date);
+      const byCategory: Record<string, number> = {};
+      for (const e of dayEntries) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
+      return { date, total: dayEntries.reduce((s, e) => s + e.amount, 0), byCategory };
     });
     const byCategory: Record<string, number> = {};
     for (const e of entries) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;

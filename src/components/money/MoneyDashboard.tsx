@@ -106,8 +106,39 @@ function changesBudget(published: Ledger["budget"], o: BudgetOverrides): boolean
   return hasOverrides(o) && JSON.stringify(applyOverrides(published, o)) !== JSON.stringify(applyOverrides(published, {}));
 }
 
+/**
+ * Today's date, kept current. A phone leaves this tab open for days, so the
+ * date re-reads at local midnight and whenever the page comes back into view;
+ * otherwise a new day, week or month never shows up until a reload.
+ */
+function useToday(): string {
+  const [today, setToday] = useState(() => todayISO());
+  useEffect(() => {
+    const sync = () => setToday(todayISO());
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      timer = setTimeout(() => {
+        sync();
+        arm();
+      }, midnight.getTime() - now.getTime() + 1000);
+    };
+    arm();
+    const onVisible = () => document.visibilityState === "visible" && sync();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", sync);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
+  return today;
+}
+
 export function MoneyDashboard({ ledger, passphrase, onLock }: { ledger: Ledger; passphrase: string; onLock: () => void }) {
-  const today = todayISO();
+  const today = useToday();
 
   // Budget edits are the real budget. They save, encrypted under the ledger
   // passphrase, to /api/money/budget and load on every device. The next ledger
@@ -203,9 +234,10 @@ export function MoneyDashboard({ ledger, passphrase, onLock }: { ledger: Ledger;
   const caps = useMemo(() => capsSaved ?? defaultCaps(working, today), [capsSaved, working, today]);
 
   const months = useMemo(() => availableMonths(working, today), [working, today]);
-  const [selected, setSelected] = useState(() =>
-    availableMonths(ledger, today).includes(monthKey(today)) ? monthKey(today) : availableMonths(ledger, today)[0]
-  );
+  // Null follows the current month, so the view rolls over on the 1st on its own.
+  const [picked, setPicked] = useState<string | null>(null);
+  const setSelected = (k: string) => setPicked(k === monthKey(today) ? null : k);
+  const selected = picked && months.includes(picked) ? picked : months.includes(monthKey(today)) ? monthKey(today) : months[0];
 
   const view = useMemo(() => buildMonthView(working, selected, today), [working, selected, today]);
   const balance = useMemo(() => balanceSeries(working.budget, working.income), [working]);
