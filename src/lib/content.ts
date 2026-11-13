@@ -9,7 +9,12 @@ export type PostMeta = {
   /** Optional updated date; shown as "last updated on" when present. */
   updated?: string;
   tags?: string[];
+  /** Drafts are hidden in production. Set from the editor at /keystatic. */
+  draft?: boolean;
 };
+
+/** Drafts show in `next dev` (with a label) and are hidden from production builds. */
+export const SHOW_DRAFTS = process.env.NODE_ENV !== "production";
 
 function readSlugs(): string[] {
   const dir = path.join(process.cwd(), "src", "content", "posts");
@@ -20,18 +25,22 @@ function readSlugs(): string[] {
     .map((f) => f.replace(/\.mdx$/, ""));
 }
 
-export function getPostSlugs() {
-  return readSlugs();
-}
-
-export async function getPosts(): Promise<PostMeta[]> {
-  const slugs = readSlugs();
-  const items = await Promise.all(
-    slugs.map(async (slug) => {
+async function readAll(): Promise<PostMeta[]> {
+  return Promise.all(
+    readSlugs().map(async (slug) => {
       const mod = await import(`@/content/posts/${slug}.mdx`);
       return { slug, ...mod.metadata } as PostMeta;
     }),
   );
+}
+
+/** Slugs of posts visible in this build (drafts excluded in production). */
+export async function getPostSlugs(): Promise<string[]> {
+  return (await getPosts()).map((p) => p.slug);
+}
+
+export async function getPosts(): Promise<PostMeta[]> {
+  const items = (await readAll()).filter((p) => SHOW_DRAFTS || !p.draft);
   // Newest first, by updated date if set, else added date.
   return items.sort((a, b) =>
     (b.updated ?? b.date).localeCompare(a.updated ?? a.date),
