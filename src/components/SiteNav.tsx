@@ -7,7 +7,6 @@ import { site } from "@/lib/site";
 const links = [
   { href: "/", label: "home" },
   { href: "/posts", label: "posts" },
-  { href: "/hky-bio", label: "hky.bio" },
 ];
 
 function HeaderLink({ href, label }: { href: string; label: string }) {
