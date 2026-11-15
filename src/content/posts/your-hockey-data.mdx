@@ -1,12 +1,11 @@
 ---
-title: "Scraping & LLM Chaining behind hky.bio Signup Flow"
-draft: false
-summary: "Gathering scattered hockey data for the user."
-date: "2026-06-09"
+title: Scraping & LLM Chains behind hky.bio Signup Flow
+draft: true
+summary: Gathering scattered hockey data for the user.
+date: 2026-06-09
 tags:
   - hky-bio
 ---
-
 Your hockey career is scattered across a dozen sites that don't talk to each other. Stats on EP, highlights on YouTube, features in local news, a headshot on a roster page, the rest on Instagram. All public, all findable by anyone with a browser, and none of it in one place.
 
 I built a system that fixes that from almost nothing: a name and a date of birth. It searches, reads the messy public data, decides what is actually about that player, and assembles one page while they watch. This note walks through how it works, how it scores candidates, how I test it, what it costs, and where I think it goes next.
@@ -33,9 +32,9 @@ Nothing gets attached on a name match alone. Same-name doppelgangers are the fai
 
 **Elite Prospects** runs on a confidence tier that decides what happens to the candidate:
 
-- `high` applies automatically.
-- `medium` is shown to you in the signup walkthrough to confirm or reject.
-- `low` is dropped.
+* `high` applies automatically.
+* `medium` is shown to you in the signup walkthrough to confirm or reject.
+* `low` is dropped.
 
 The signals that move the tier: a single-candidate hit (if search returns exactly one EP profile for the name, that is strong on its own), an exact date-of-birth match, and a fuzzy name match that tolerates transliteration, accents, hyphenation, middle names, and Jr/Sr. One rule sits outside the model: if a name is within edit distance three and the birth date matches exactly, it never drops below `medium`. A deterministic check guards the most expensive mistake.
 
@@ -89,9 +88,9 @@ The judges never reply in prose. Each call demands structured output against a s
 
 Where the response lands depends on the tier, and nothing destructive happens on the model's say-so:
 
-- `low` writes nothing.
-- `medium` writes a single candidate row and stops. The page is untouched until you confirm it in the walkthrough.
-- `high` applies: it writes the child rows (journey, stats, social links) and fills player fields like position and birth year, but only into blanks. A value you already set is never overwritten.
+* `low` writes nothing.
+* `medium` writes a single candidate row and stops. The page is untouched until you confirm it in the walkthrough.
+* `high` applies: it writes the child rows (journey, stats, social links) and fills player fields like position and birth year, but only into blanks. A value you already set is never overwritten.
 
 Every applied row is stamped with the run that wrote it, so rejecting a candidate later pulls its exact rows back out cleanly. The `reason` rides along on each one, so a wrong call explains itself in the row.
 
@@ -105,9 +104,9 @@ One file guards against regressions I have already paid for once: blocked metada
 
 The whole pipeline runs on Gemini 2.5 Flash, cheap enough to spend per player without thinking about it. Cost control is structural, not a spend alarm after the fact:
 
-- The Apify scrape budget is a hard per-run cap (ten calls); any stage that hits it fails open with an empty result instead of looping.
-- The news judge estimates batch cost up front and truncates the article list before the call.
-- Every stage emits an event to an append-only log, including `cost.cap_hit` when a guard trips, so a run stays traceable.
+* The Apify scrape budget is a hard per-run cap (ten calls); any stage that hits it fails open with an empty result instead of looping.
+* The news judge estimates batch cost up front and truncates the article list before the call.
+* Every stage emits an event to an append-only log, including `cost.cap_hit` when a guard trips, so a run stays traceable.
 
 Add it up and a run costs roughly five cents per player. About six Flash calls (EP match, the chapter collapse, the YouTube and news judges, the Instagram classifier and profile judge) land near three cents at Flash's token prices. The searches add well under a cent, the capped Instagram scrapes a cent or two. That is an estimate from per-run call and token counts, not a billed invoice, but the shape is clear: a nickel-per-player problem, not a dollar one.
 
