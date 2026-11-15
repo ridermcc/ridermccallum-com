@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { optimizedImg } from "@/lib/img";
 
 type Photo = { src: string; alt: string };
 
@@ -20,14 +21,16 @@ const ASPECT = {
 export function PhotoGrid({
   photos,
   cols = 3,
-  aspect,
+  aspect: aspectProp,
   children,
 }: {
   photos?: Photo[];
   cols?: 1 | 2 | 3 | 4;
-  aspect?: keyof typeof ASPECT;
+  aspect?: keyof typeof ASPECT | "";
   children?: ReactNode;
 }) {
+  // The editor writes aspect="" for "natural"; treat it as unset.
+  const aspect = aspectProp || undefined;
   // When `children` are passed, each child becomes one cell of the grid (or one
   // item of the stack when cols={1}). This is what makes nesting work: drop a
   // <PhotoGrid cols={1} .../> in as a child and it fills that cell as a column.
@@ -40,7 +43,7 @@ export function PhotoGrid({
     photos?.map((p) => (
       <img
         key={p.src}
-        src={p.src}
+        {...optimizedImg(p.src, cols === 1 ? "(min-width: 768px) 720px, 100vw" : "(min-width: 640px) 50vw, 100vw")}
         alt={p.alt}
         loading="lazy"
         className={photoClass}

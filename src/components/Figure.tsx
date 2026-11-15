@@ -1,4 +1,5 @@
 import type { ComponentPropsWithoutRef } from "react";
+import { optimizedImg } from "@/lib/img";
 
 // A standalone post image with its alt text shown as a subtle caption beneath.
 // Use in MDX in place of a bare <img> when you want the caption to render:
@@ -10,11 +11,12 @@ import type { ComponentPropsWithoutRef } from "react";
 export function Figure({
   alt,
   hideCaption = false,
+  src,
   ...props
 }: ComponentPropsWithoutRef<"img"> & { hideCaption?: boolean }) {
   return (
     <figure>
-      <img alt={alt} loading="lazy" {...props} />
+      <img alt={alt} loading="lazy" {...props} {...optimizedImg(src, "(min-width: 768px) 720px, 100vw")} />
       {alt && !hideCaption ? <figcaption>{alt}</figcaption> : null}
     </figure>
   );

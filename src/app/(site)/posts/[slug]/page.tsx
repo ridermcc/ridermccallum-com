@@ -1,25 +1,33 @@
 import Link from "next/link";
+import { draftMode } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPostSlugs, getTags } from "@/lib/content";
+import { getPostSlugs, getTags, SHOW_DRAFTS } from "@/lib/content";
 import { Tags } from "@/components/Tags";
 import { Lightbox } from "@/components/Lightbox";
 import type { PostMeta } from "@/lib/content";
 
 async function loadPost(slug: string) {
+  let mod;
   try {
-    const mod = await import(`@/content/posts/${slug}.mdx`);
-    return { Component: mod.default, meta: mod.metadata as PostMeta };
+    mod = await import(`@/content/posts/${slug}.mdx`);
   } catch {
     return null;
   }
+  const meta = { ...mod.metadata, slug } as PostMeta;
+  // Drafts render only in dev, or in production for a signed-in editor who
+  // came through /api/preview (which turns on draft mode).
+  if (meta.draft && !SHOW_DRAFTS && !(await draftMode()).isEnabled) return null;
+  return { Component: mod.default, meta };
 }
 
-export function generateStaticParams() {
-  return getPostSlugs().map((slug) => ({ slug }));
+export async function generateStaticParams() {
+  return (await getPostSlugs()).map((slug) => ({ slug }));
 }
 
-export const dynamicParams = false;
+// Published posts are prerendered. Other slugs render on request so a draft
+// can be previewed; loadPost() 404s them for everyone else.
+export const dynamicParams = true;
 
 export async function generateMetadata({
   params,
@@ -54,6 +62,12 @@ export default async function PostPage({
 
   return (
     <article>
+      {meta.draft ? (
+        <p className="draft-banner">
+          Draft. Not visible on the live site.{" "}
+          {SHOW_DRAFTS ? null : <a href="/api/preview/exit">Exit preview</a>}
+        </p>
+      ) : null}
       <h1 className="article-title text-3xl">{meta.title}</h1>
       <div className="mt-1">
         {meta.updated ? (

@@ -428,3 +428,15 @@ img {
     }
   }
 }
+
+/* Draft markers. Drafts only render in dev or in editor preview. */
+.draft-banner {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--muted);
+  font-size: 0.875rem;
+}
+.draft-tag {
+  color: var(--muted);
+  font-size: 0.875rem;
+}

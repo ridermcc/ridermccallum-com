@@ -18,6 +18,7 @@ export function PostList({ posts }: { posts: PostMeta[] }) {
             {p.title}
           </Link>{" "}
           <time dateTime={p.date}>{formatDate(p.date)}</time>
+          {p.draft ? <span className="draft-tag"> (draft)</span> : null}
           {p.summary ? (
             <p style={{ color: "var(--muted)" }} className="mt-1">
               {p.summary}
