@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   // 127.0.0.1 is also required for the Keystatic editor in dev: it redirects
   // localhost to 127.0.0.1 for its GitHub sign-in callback.
   allowedDevOrigins: ["127.0.0.1", "192.168.*.*"],
+  async redirects() {
+    return [
+      // Link-in-bio: the address on Instagram, the page on hky.bio.
+      // Temporary (307) so browsers don't cache it if the target ever moves.
+      { source: "/bio", destination: "https://hky.bio/rider", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       { source: "/europe", destination: "/europe/index.html" },
